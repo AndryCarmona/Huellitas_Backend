@@ -7,6 +7,7 @@ BUCKET_NAME="evidencia_reporte"
 def crear_reporte(data: ReporteCreate):
     payload = data.dict()
     payload["fecha_reporte"] = "now()"
+    print("PAYLOAD A INSERTAR:", payload)
 
     response = supabase.table("reporte").insert(payload).execute()
     return response.data

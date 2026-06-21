@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException
-from .schemas import ReporteCreate
-from .service import crear_reporte
+from fastapi import APIRouter, HTTPException, UploadFile, File
+from .schemas import ReporteCreate, UploadResponse
+from .service import crear_reporte, subir_evidencia
 
 router = APIRouter(prefix="/reportes", tags=["Reportes"])
 
@@ -8,5 +8,14 @@ router = APIRouter(prefix="/reportes", tags=["Reportes"])
 def crear(data: ReporteCreate):
     try:
         return crear_reporte(data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/upload_evidencia", response_model=UploadResponse)
+async def upload_evidencia(file: UploadFile = File(...)):
+    try:
+        contenido = await file.read()
+        url = subir_evidencia(contenido, file.filename)
+        return {"url": url}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

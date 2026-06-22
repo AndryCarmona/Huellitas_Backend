@@ -24,3 +24,7 @@ def subir_evidencia(file_bytes: bytes, filename: str) -> str:
 
     url_publica = supabase.storage.from_(BUCKET_NAME).get_public_url(nombre_unico)
     return url_publica
+
+def listar_reportes():
+    response = supabase.table("reporte").select("*").execute()
+    return response.data

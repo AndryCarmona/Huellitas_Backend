@@ -1,13 +1,10 @@
-import os
 from fastapi import FastAPI
-from supabase import create_client
-from dotenv import load_dotenv
+from app.modules.catalogos.router import router as catalogos_router
+from app.modules.reportes.router import router as reportes_router
+from app.modules.usuarios.router import router as usuarios_router
 
-# 1. Cargamos el archivo .env
-load_dotenv()
+app = FastAPI(title="Huellitas API")
 
-# 2. Leemos las variables limpias
-url = os.getenv("SUPABASE_URL")
-key = os.getenv("SUPABASE_KEY")
-
-print(f"--- REVISAN
+app.include_router(catalogos_router)
+app.include_router(reportes_router)
+app.include_router(usuarios_router)

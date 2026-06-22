@@ -1,23 +1,40 @@
-#RUTAS DE LA API
 from fastapi import APIRouter, HTTPException, status
-from app.main import supabase  # Asegúrate de que apunte a donde instanciaste tu cliente de Supabase
-from .schemas import RegistroUsuarioRequest
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token
+from .service import UsuarioService
 
-router = APIRouter(
-    prefix="/auth",
-    tags=["Autenticación"]
-)
+router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
-@router.post("/registro")
-def registrar_usuario(datos: RegistroUsuarioRequest):
+@router.post("/register", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED)
+def registrar(usuario: UsuarioCreate):
+    service = UsuarioService()
     try:
-        # Probemos SOLO el paso de Auth
-        auth_response = supabase.auth.sign_up({
-            "email": datos.email,
-            "password": datos.password
-        })
-        
-        return {"mensaje": "¡El paso de Auth funcionó perfectamente!", "id": auth_response.user.id}
-        
+        new_usuario = service.registrar_usuario(usuario)
+        return new_usuario
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error en Auth: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al crear usuario: {str(e)}"
+        )
+
+@router.post("/login", response_model=Token)
+def login(usuario_credentials: UsuarioLogin):
+    service = UsuarioService()
+    usuario = service.iniciar_sesion(
+        usuario_credentials.correo, 
+        usuario_credentials.contrasenia
+    )
+    
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Correo o contraseña incorrectos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token = service.crear_sesion_token(data={"sub": usuario["correo"]})
+    return {"access_token": access_token, "token_type": "bearer"}

@@ -10,9 +10,14 @@ class ReporteCreate(BaseModel):
     ubicacion: str
     tipo_reporte: int
     urgencia_id: int
-    evidencia: Optional[str]
+    evidencia: str
     usuario_id_fk: int
+    latitud: float
+    longitud: float
 
 class ReporteOut(ReporteCreate):
     reporte_id: int
     fecha_reporte: datetime
+
+class UploadResponse(BaseModel):
+    url: str

@@ -20,8 +20,7 @@ def registrar(usuario: UsuarioCreate):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al crear usuario: {str(e)}"
         )
-
-@router.post("/login", response_model=Token)
+@router.post("/login")
 def login(usuario_credentials: UsuarioLogin):
     service = UsuarioService()
     usuario = service.iniciar_sesion(
@@ -37,4 +36,11 @@ def login(usuario_credentials: UsuarioLogin):
         )
     
     access_token = service.crear_sesion_token(data={"sub": usuario["correo"]})
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "nombre": usuario.get("nombre", "Usuario") 
+        }
+    }

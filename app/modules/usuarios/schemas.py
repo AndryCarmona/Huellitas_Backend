@@ -13,8 +13,10 @@ class UsuarioCreate(BaseModel):
     colonia: Optional[str] = None
     cp: Optional[str] = None
     ciudad: Optional[str] = None
+    estado: Optional[str] = None
     identificacion_frontal: Optional[str] = None
     identificacion_trasera: Optional[str] = None
+    foto_selfie: Optional[str] = None
 
 class UsuarioLogin(BaseModel):
     correo: EmailStr

@@ -4,9 +4,11 @@ from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext 
 from .repository import UsuarioRepository
 from .schemas import UsuarioCreate
+from app.core.database import supabase
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+BUCKET_NAME = "usuarios-completar-perfil"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -57,3 +59,36 @@ class UsuarioService:
             return None
             
         return usuario
+    
+    # Completar_perfil
+    def _subir_foto(self, usuario_id: int, archivo, tipo: str) -> str:
+        contenido = archivo.file.read()
+        extension = archivo.filename.split(".")[-1]
+        ruta = f"{usuario_id}/{tipo}.{extension}"
+        supabase.storage.from_(BUCKET_NAME).upload(
+            ruta, contenido, {"content-type": archivo.content_type, "upsert": "true"}
+        )
+        return supabase.storage.from_(BUCKET_NAME).get_public_url(ruta)
+
+    def completar_perfil(self, usuario_id, calle, colonia, cp, ciudad, estado, frontal, trasera, selfie):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        url_frontal = self._subir_foto(usuario_id, frontal, "frontal")
+        url_trasera = self._subir_foto(usuario_id, trasera, "trasera")
+        url_selfie = self._subir_foto(usuario_id, selfie, "selfie")
+
+        data = {
+            "calle": calle,
+            "colonia": colonia,
+            "cp": cp,
+            "ciudad": ciudad,
+            "estado": estado,
+            "identificacion_frontal": url_frontal,
+            "identificacion_trasera": url_trasera,
+            "foto_selfie": url_selfie,
+            "verificado": True,
+            "rol_usuario": "usuario_verificado",
+        }
+        return self.repository.actualizar_perfil(usuario_id, data)

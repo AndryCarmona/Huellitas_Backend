@@ -39,13 +39,23 @@ def login(usuario_credentials: UsuarioLogin):
         )
     
     access_token = service.crear_sesion_token(data={"sub": usuario["correo"]})
-    
+
+    usuario_data = {
+        "usuario_id_pk": usuario["usuario_id_pk"],
+        "correo": usuario["correo"],
+        "nombre": usuario["nombre"],
+        "apellidos": usuario["apellidos"],
+        "num_telefono": usuario["num_telefono"],
+        "fecha_nacimiento": usuario["fecha_nacimiento"],
+        "verificado": usuario["verificado"],
+        "fecha_registro_usuario": usuario["fecha_registro_usuario"],
+        "rol_usuario": usuario["rol_usuario"],
+    }
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": {
-            "nombre": usuario.get("nombre", "Usuario") 
-        }
+        "user": usuario_data
     }
 
 @router.patch("/completar-perfil", response_model=UsuarioResponse)

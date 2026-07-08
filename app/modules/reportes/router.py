@@ -20,6 +20,7 @@ async def upload_evidencia(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
+    
 @router.get("")  # ✅ Agregar este endpoint nuevo
 def listar():
     try:

@@ -7,11 +7,11 @@ class InsigniaService:
         self.repository = repository
 
     async def obtener_insignias_usuario(self, usuario_id_pk: int) -> List[InsigniaResponse]:
-        # 1. Pedimos los datos al repositorio
-        catalogo = await self.repository.obtener_catalogo_insignias()
-        obtenidas = await self.repository.obtener_insignias_de_usuario(usuario_id_pk)
+        #Pedimos los datos al repositorio
+        catalogo = self.repository.obtener_catalogo_insignias()
+        obtenidas = self.repository.obtener_insignias_de_usuario(usuario_id_pk)
 
-        # 2. Procesamos los datos (Lógica de negocio)
+        #Procesamos los datos 
         mapa_obtenidas = {item['insignia_id']: item['fecha_obtencion'] for item in obtenidas}
 
         resultado = []

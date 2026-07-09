@@ -9,7 +9,7 @@ from .service import InsigniaService
 router = APIRouter(prefix="/insignias", tags=["Insignias"])
 
 def get_insignia_service() -> InsigniaService:
-    repo = InsigniaRepository(supabase)
+    repo = InsigniaRepository()
     return InsigniaService(repo)
 
 @router.get("/usuario/{usuario_id}", response_model=List[InsigniaResponse])

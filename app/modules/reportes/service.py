@@ -25,6 +25,12 @@ def subir_evidencia(file_bytes: bytes, filename: str) -> str:
     url_publica = supabase.storage.from_(BUCKET_NAME).get_public_url(nombre_unico)
     return url_publica
 
-def listar_reportes():
+def listar_reportes(usuario_verificado: bool = False):
     response = supabase.table("reporte").select("*").execute()
-    return response.data
+    reportes = response.data
+
+    if not usuario_verificado:
+        # tipo_reporte == 4 corresponde a "Maltrato animal"
+        reportes = [r for r in reportes if r.get("tipo_reporte") != 4]
+
+    return reportes

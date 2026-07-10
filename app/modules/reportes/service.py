@@ -55,7 +55,6 @@ def listar_reportes(usuario_verificado: bool = False):
         reportes = [r for r in reportes if r.get("tipo_reporte") != 4]
 
     return reportes
-    return response.data
 
 #CONTAR NUMERO DE REPORTES PARA ASIGNARLE LA INSIGNIAAAAA
 def _verificar_insignias_reportes(usuario_id: int):

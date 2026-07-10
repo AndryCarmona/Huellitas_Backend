@@ -14,7 +14,6 @@ class ReporteCreate(BaseModel):
     usuario_id_fk: int
     latitud: float
     longitud: float
-    fase_actual_id: int
 
 class ReporteOut(ReporteCreate):
     reporte_id: int

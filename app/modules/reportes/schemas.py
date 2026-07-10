@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional,List
 
 class ReporteCreate(BaseModel):
     tipo_animal: int
@@ -14,6 +14,7 @@ class ReporteCreate(BaseModel):
     usuario_id_fk: int
     latitud: float
     longitud: float
+    fase_actual_id: int
 
 class ReporteOut(ReporteCreate):
     reporte_id: int
@@ -21,3 +22,25 @@ class ReporteOut(ReporteCreate):
 
 class UploadResponse(BaseModel):
     url: str
+
+class HistorialFaseOut(BaseModel):
+    fase_nombre: str
+    fecha_cambio: datetime
+    evidencia_url: Optional[str] = None
+
+class ReporteEstadoOut(BaseModel):
+    reporteId: int
+    faseActual: int
+    nivelUrgencia: str
+    tipoReporte: str
+    descripcion: str
+    ubicacion: str
+    tipoAnimal: str
+    raza: str
+    tamano: str
+    evidenciaUrl: Optional[str] = None
+    historialFases: List[str] = []
+
+class ActualizarEstadoRequest(BaseModel):
+    nueva_fase_id: int
+    comentarios: Optional[str] = None

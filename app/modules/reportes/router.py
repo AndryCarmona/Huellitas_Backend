@@ -41,7 +41,7 @@ def obtener_estado(reporte_id: int):
 async def actualizar_estado(
     reporte_id: int,
     nueva_fase_id: int = Form(...),
-    usuario_id: int = Form(...),
+    usuario_id: int = Form(None),
     evidencia: UploadFile = File(...),
     comentarios: str = Form(None)
 ):

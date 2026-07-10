@@ -61,21 +61,25 @@ class ReporteRepository:
             "historialFases": historial_str
         }
 
-    def actualizar_estado_reporte(self, reporte_id: int, nueva_fase_id: int, evidencia_url: str, comentarios: str = None):
+    def actualizar_estado_reporte(self, reporte_id: int, nueva_fase_id: int, evidencia_url: str, usuario_id: int = None, comentarios: str = None):
         """Actualiza la fase actual del reporte y guarda en el historial."""
-        #Actualizar la fase actual
         supabase.table("reporte").update({
             "fase_actual_id": nueva_fase_id,
             "evidencia": evidencia_url
         }).eq("reporte_id", reporte_id).execute()
 
-        # 2. Insertar en el historial
-        supabase.table("historial_fases_reporte").insert({
-            "reporte_id": reporte_id,
-            "fase_id": nueva_fase_id,
-            "evidencia_url": evidencia_url,
-            "usuario_id": usuario_id,
-            "comentarios": comentarios
-        }).execute()
+        data_historial = {
+        "reporte_id": reporte_id,
+        "fase_id": nueva_fase_id,
+        "evidencia_url": evidencia_url,
+        "comentarios": comentarios
+        }
+    
+        if usuario_id is not None:
+            data_historial["usuario_id"] = usuario_id
+
+        # 3. Insertar en el historial
+        supabase.table("historial_fases_reporte").insert(data_historial).execute()
+
 
         return True

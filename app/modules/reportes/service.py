@@ -90,7 +90,7 @@ def subir_evidencia_seguimiento(file_bytes: bytes, filename: str) -> str:
     url_publica = supabase.storage.from_(BUCKET_SEGUIMIENTO).get_public_url(nombre_unico)
     return url_publica
 
-def actualizar_estado_reporte(reporte_id: int, nueva_fase_id: int, file_bytes: bytes, filename: str, comentarios: str = None):
+def actualizar_estado_reporte(reporte_id: int, nueva_fase_id: int, file_bytes: bytes, filename: str, usuario_id: int = None, comentarios: str = None):
     """Actualiza el estado del reporte y sube la evidencia al bucket de seguimiento."""
     url_evidencia = subir_evidencia_seguimiento(file_bytes, filename)
 

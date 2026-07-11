@@ -32,6 +32,11 @@ class UsuarioResponse(BaseModel):
     verificado: bool
     fecha_registro_usuario: datetime
     rol_usuario: str
+    calle: Optional[str] = None
+    colonia: Optional[str] = None
+    cp: Optional[str] = None
+    ciudad: Optional[str] = None
+    estado: Optional[str] = None
 
     class Config:
         from_attributes = True

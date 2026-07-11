@@ -50,6 +50,11 @@ def login(usuario_credentials: UsuarioLogin):
         "verificado": usuario["verificado"],
         "fecha_registro_usuario": usuario["fecha_registro_usuario"],
         "rol_usuario": usuario["rol_usuario"],
+        "calle": usuario.get("calle"),
+        "colonia": usuario.get("colonia"),
+        "cp": usuario.get("cp"),
+        "ciudad": usuario.get("ciudad"),
+        "estado": usuario.get("estado"),
     }
 
     return {

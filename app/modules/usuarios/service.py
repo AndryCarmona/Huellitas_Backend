@@ -3,7 +3,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext 
 from .repository import UsuarioRepository
-from .schemas import UsuarioCreate
+from .schemas import UsuarioCreate, EditarPerfilRequest
 from app.core.database import supabase
 
 ALGORITHM = "HS256"
@@ -92,3 +92,30 @@ class UsuarioService:
             "rol_usuario": "usuario_verificado",
         }
         return self.repository.actualizar_perfil(usuario_id, data)
+
+    #Actualizar info del perfil
+    def editar_perfil(self, usuario_id: int, datos: EditarPerfilRequest):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        # Solo actualiza los campos que el usuario realmente mandó (no None)
+        data = {k: v for k, v in datos.dict().items() if v is not None}
+
+        if not data:
+            raise ValueError("No se enviaron campos para actualizar")
+
+        return self.repository.actualizar_perfil(usuario_id, data)
+
+    def cambiar_contrasenia(self, usuario_id: int, contrasenia_actual: str, contrasenia_nueva: str):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        if not pwd_context.verify(contrasenia_actual, usuario["contrasenia"]):
+            raise ValueError("La contraseña actual es incorrecta")
+
+        nueva_hasheada = pwd_context.hash(contrasenia_nueva)
+        self.repository.actualizar_perfil(usuario_id, {"contrasenia": nueva_hasheada})
+
+        return {"mensaje": "Contraseña actualizada correctamente"}

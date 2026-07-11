@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, status
-from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token
+from fastapi import APIRouter, HTTPException, status, Depends
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest
 from .service import UsuarioService
 from fastapi import Depends, Form, File, UploadFile
 from app.core.security import get_current_user
@@ -81,3 +81,34 @@ def completar_perfil(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al completar perfil: {str(e)}")
+
+
+@router.patch("/editar-perfil", response_model=UsuarioResponse)
+def editar_perfil(
+    datos: EditarPerfilRequest,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.editar_perfil(usuario_actual["usuario_id_pk"], datos)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al editar perfil: {str(e)}")
+
+@router.patch("/cambiar-contrasenia")
+def cambiar_contrasenia(
+    datos: CambiarContraseniaRequest,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.cambiar_contrasenia(
+            usuario_actual["usuario_id_pk"],
+            datos.contrasenia_actual,
+            datos.contrasenia_nueva,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al cambiar contraseña: {str(e)}")

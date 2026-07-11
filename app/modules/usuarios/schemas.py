@@ -39,3 +39,17 @@ class UsuarioResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+#ACTUALIZAR INFO
+class EditarPerfilRequest(BaseModel):
+    nombre: Optional[str] = None
+    apellidos: Optional[str] = None
+    num_telefono: Optional[str] = None
+    calle: Optional[str] = None
+    colonia: Optional[str] = None
+    cp: Optional[str] = None
+    ciudad: Optional[str] = None
+
+class CambiarContraseniaRequest(BaseModel):
+    contrasenia_actual: str
+    contrasenia_nueva: str

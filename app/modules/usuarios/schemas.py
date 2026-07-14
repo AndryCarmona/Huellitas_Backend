@@ -37,6 +37,7 @@ class UsuarioResponse(BaseModel):
     cp: Optional[str] = None
     ciudad: Optional[str] = None
     estado: Optional[str] = None
+    foto_perfil: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -58,3 +59,6 @@ class EditarPerfilRequest(BaseModel):
 class CambiarContraseniaRequest(BaseModel):
     contrasenia_actual: str
     contrasenia_nueva: str
+
+class ActualizarFotoPerfilRequest(BaseModel):
+    foto_perfil: str 

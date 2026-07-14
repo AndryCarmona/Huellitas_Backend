@@ -9,6 +9,7 @@ from app.core.database import supabase
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 BUCKET_NAME = "usuarios-completar-perfil"
+BUCKET_FOTOS_PERFIL = "fotos-perfil"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -119,3 +120,26 @@ class UsuarioService:
         self.repository.actualizar_perfil(usuario_id, {"contrasenia": nueva_hasheada})
 
         return {"mensaje": "Contraseña actualizada correctamente"}
+
+    def actualizar_foto_perfil_catalogo(self, usuario_id: int, nombre_avatar: str):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        return self.repository.actualizar_perfil(usuario_id, {"foto_perfil": nombre_avatar})
+
+    def subir_foto_perfil_personalizada(self, usuario_id: int, archivo):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        contenido = archivo.file.read()
+        extension = archivo.filename.split(".")[-1]
+        ruta = f"{usuario_id}/perfil.{extension}"
+
+        supabase.storage.from_(BUCKET_FOTOS_PERFIL).upload(
+            ruta, contenido, {"content-type": archivo.content_type, "upsert": "true"}
+        )
+        url = supabase.storage.from_(BUCKET_FOTOS_PERFIL).get_public_url(ruta)
+
+        return self.repository.actualizar_perfil(usuario_id, {"foto_perfil": url})

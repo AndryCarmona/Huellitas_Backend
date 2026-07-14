@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends
-from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest
 from .service import UsuarioService
 from fastapi import Depends, Form, File, UploadFile
 from app.core.security import get_current_user
@@ -117,3 +117,29 @@ def cambiar_contrasenia(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al cambiar contraseña: {str(e)}")
+
+@router.patch("/foto-perfil-catalogo", response_model=UsuarioResponse)
+def foto_perfil_catalogo(
+    datos: ActualizarFotoPerfilRequest,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.actualizar_foto_perfil_catalogo(
+            usuario_actual["usuario_id_pk"], datos.foto_perfil
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.patch("/foto-perfil-personalizada", response_model=UsuarioResponse)
+def foto_perfil_personalizada(
+    file: UploadFile = File(...),
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.subir_foto_perfil_personalizada(
+            usuario_actual["usuario_id_pk"], file
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

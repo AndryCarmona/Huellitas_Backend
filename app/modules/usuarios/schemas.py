@@ -52,6 +52,7 @@ class Token(BaseModel):
 class EditarPerfilRequest(BaseModel):
     nombre: Optional[str] = None
     apellidos: Optional[str] = None
+    nombre_usuario: Optional[str] = None 
     num_telefono: Optional[str] = None
     calle: Optional[str] = None
     colonia: Optional[str] = None

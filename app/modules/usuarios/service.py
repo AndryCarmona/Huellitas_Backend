@@ -109,11 +109,15 @@ class UsuarioService:
         if not usuario:
             raise ValueError("Usuario no encontrado")
 
-        # Solo actualiza los campos que el usuario realmente mandó (no None)
         data = {k: v for k, v in datos.dict().items() if v is not None}
 
         if not data:
             raise ValueError("No se enviaron campos para actualizar")
+
+        if "nombre_usuario" in data:
+            existente = self.repository.obtener_por_nombre_usuario(data["nombre_usuario"])
+            if existente and existente["usuario_id_pk"] != usuario_id:
+                raise ValueError("El nombre de usuario ya está en uso")
 
         return self.repository.actualizar_perfil(usuario_id, data)
 

@@ -17,3 +17,7 @@ class UsuarioRepository:
     def actualizar_perfil(self, usuario_id: int, data: dict):
         result = supabase.table("usuario").update(data).eq("usuario_id_pk", usuario_id).execute()
         return result.data[0] if result.data else None
+    
+    def obtener_por_nombre_usuario(self, nombre_usuario: str):
+        result = supabase.table("usuario").select("*").eq("nombre_usuario", nombre_usuario).execute()
+        return result.data[0] if result.data else None

@@ -29,14 +29,19 @@ class UsuarioService:
         existing_usuario = self.repository.obtener_correo(usuario_data.correo)
         if existing_usuario:
             raise ValueError("El correo ya está registrado")
-        
+
+        existing_username = self.repository.obtener_por_nombre_usuario(usuario_data.nombre_usuario)
+        if existing_username:
+            raise ValueError("El nombre de usuario ya está en uso")
+
         contrasenia = pwd_context.hash(usuario_data.contrasenia)
-        
+
         payload = {
             "correo": usuario_data.correo,
             "contrasenia": contrasenia,
             "nombre": usuario_data.nombre,
             "apellidos": usuario_data.apellidos,
+            "nombre_usuario": usuario_data.nombre_usuario,
             "num_telefono": usuario_data.num_telefono,
             "fecha_nacimiento": usuario_data.fecha_nacimiento.isoformat(),
             "calle": usuario_data.calle,
@@ -46,19 +51,23 @@ class UsuarioService:
             "identificacion_frontal": usuario_data.identificacion_frontal,
             "identificacion_trasera": usuario_data.identificacion_trasera,
             "verificado": False,
-            "rol_usuario": "usuario"
+            "rol_usuario": "usuario",
         }
-        
+
         return self.repository.crear_usuario(payload)
-    
-    def iniciar_sesion(self, correo: str, password: str):
-        usuario = self.repository.obtener_correo(correo)
+
+    def iniciar_sesion(self, identificador: str, password: str):
+        if "@" in identificador:
+            usuario = self.repository.obtener_correo(identificador)
+        else:
+            usuario = self.repository.obtener_por_nombre_usuario(identificador)
+
         if not usuario:
             return None
-        
+
         if not pwd_context.verify(password, usuario["contrasenia"]):
             return None
-            
+
         return usuario
     
     # Completar_perfil

@@ -27,17 +27,17 @@ def registrar(usuario: UsuarioCreate):
 def login(usuario_credentials: UsuarioLogin):
     service = UsuarioService()
     usuario = service.iniciar_sesion(
-        usuario_credentials.correo, 
+        usuario_credentials.identificador,
         usuario_credentials.contrasenia
     )
-    
+
     if not usuario:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Correo o contraseña incorrectos",
+            detail="Usuario o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token = service.crear_sesion_token(data={"sub": usuario["correo"]})
 
     usuario_data = {
@@ -45,6 +45,7 @@ def login(usuario_credentials: UsuarioLogin):
         "correo": usuario["correo"],
         "nombre": usuario["nombre"],
         "apellidos": usuario["apellidos"],
+        "nombre_usuario": usuario.get("nombre_usuario"),
         "num_telefono": usuario["num_telefono"],
         "fecha_nacimiento": usuario["fecha_nacimiento"],
         "verificado": usuario["verificado"],
@@ -55,7 +56,7 @@ def login(usuario_credentials: UsuarioLogin):
         "cp": usuario.get("cp"),
         "ciudad": usuario.get("ciudad"),
         "estado": usuario.get("estado"),
-        "foto_perfil": usuario.get("foto_perfil")
+        "foto_perfil": usuario.get("foto_perfil"),
     }
 
     return {

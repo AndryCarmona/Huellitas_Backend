@@ -7,6 +7,7 @@ class UsuarioCreate(BaseModel):
     contrasenia: str
     nombre: str
     apellidos: str
+    nombre_usuario: str
     num_telefono: str
     fecha_nacimiento: date
     calle: Optional[str] = None
@@ -19,7 +20,7 @@ class UsuarioCreate(BaseModel):
     foto_selfie: Optional[str] = None
 
 class UsuarioLogin(BaseModel):
-    correo: EmailStr
+    identificador: str
     contrasenia: str
 
 class UsuarioResponse(BaseModel):
@@ -27,6 +28,7 @@ class UsuarioResponse(BaseModel):
     correo: str
     nombre: str
     apellidos: str
+    nombre_usuario: Optional[str] = None
     num_telefono: str
     fecha_nacimiento: date
     verificado: bool

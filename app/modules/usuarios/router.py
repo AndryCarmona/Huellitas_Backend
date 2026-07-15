@@ -55,6 +55,7 @@ def login(usuario_credentials: UsuarioLogin):
         "cp": usuario.get("cp"),
         "ciudad": usuario.get("ciudad"),
         "estado": usuario.get("estado"),
+        "foto_perfil": usuario.get("foto_perfil")
     }
 
     return {

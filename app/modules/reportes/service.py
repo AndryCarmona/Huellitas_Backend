@@ -54,6 +54,28 @@ def listar_reportes(usuario_verificado: bool = False):
         # tipo_reporte == 4 corresponde a "Maltrato animal"
         reportes = [r for r in reportes if r.get("tipo_reporte") != 4]
 
+    # Trae todo el historial de fases, ordenado del más reciente al más antiguo
+    historial_response = (
+        supabase.table("historial_fases_reporte")
+        .select("reporte_id, fase_id, fecha_cambio")
+        .order("fecha_cambio", desc=True)
+        .execute()
+    )
+    historial = historial_response.data
+
+    ultima_fase_por_reporte = {}
+    ultima_fecha_por_reporte = {}
+    for h in historial:
+        rid = h["reporte_id"]
+        if rid not in ultima_fecha_por_reporte:
+            ultima_fecha_por_reporte[rid] = h["fecha_cambio"]
+            ultima_fase_por_reporte[rid] = h["fase_id"]
+
+    for r in reportes:
+        rid = r.get("reporte_id")
+        r["fecha_actualizacion"] = ultima_fecha_por_reporte.get(rid)
+        r["fase_actual"] = ultima_fase_por_reporte.get(rid)
+
     return reportes
 
 #CONTAR NUMERO DE REPORTES PARA ASIGNARLE LA INSIGNIAAAAA

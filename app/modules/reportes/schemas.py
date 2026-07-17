@@ -39,6 +39,7 @@ class ReporteEstadoOut(BaseModel):
     tamano: str
     evidenciaUrl: Optional[str] = None
     historialFases: List[str] = []
+    comentarios: Optional[str] = None
 
 class ActualizarEstadoRequest(BaseModel):
     nueva_fase_id: int

@@ -39,11 +39,19 @@ class ReporteRepository:
         historial_response = supabase.table("historial_fases_reporte").select("""
             fase_reporte(nombre),
             fecha_cambio,
-            evidencia_url
+            evidencia_url,
+            comentarios,
+            usuario:usuario_id(nombre)
         """).eq("reporte_id", reporte_id).order("fecha_cambio", desc=True).execute()
 
         historial_str = [
-            f"{h['fase_reporte']['nombre']} - {h['fecha_cambio']}"
+            {
+                "fase_nombre":h["fase_reporte"]["nombre"],
+                "fecha_cambio": h["fecha_cambio"],
+                "evidencia_url":h["evidencia_url"],
+                "comentarios":h.get("comentarios"),
+                "usuario_nombre":h.get("usuario",{}).get("nombre") if h.get("usuario") else None
+            }
             for h in historial_response.data
         ]
 
@@ -58,7 +66,7 @@ class ReporteRepository:
             "raza": reporte["raza_id"],
             "tamano": reporte["tamano"],
             "evidenciaUrl": reporte["evidencia"],
-            "historialFases": historial_str
+            "historialFases": historial_str,
         }
 
     def actualizar_estado_reporte(self, reporte_id: int, nueva_fase_id: int, evidencia_url: str, usuario_id: int = None, comentarios: str = None):

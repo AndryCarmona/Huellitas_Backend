@@ -26,6 +26,8 @@ class HistorialFaseOut(BaseModel):
     fase_nombre: str
     fecha_cambio: datetime
     evidencia_url: Optional[str] = None
+    comentarios:Optional[str] = None
+    usuario_nombre:Optional[str] = None
 
 class ReporteEstadoOut(BaseModel):
     reporteId: int

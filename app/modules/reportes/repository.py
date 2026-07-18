@@ -55,10 +55,14 @@ class ReporteRepository:
             for h in historial_response.data
         ]
 
+        comentarios_str = None
+        if historial_str and len(historial_str)> 0:
+            comentarios_str=historial_str[0]["comentarios"]
+
         return {
             "reporteId": reporte["reporte_id"],
             "faseActual": reporte.get("fase_actual_id", 1),
-            "nivelUrgencia": str(reporte["urgencia_id"]),  # ← Corregido
+            "nivelUrgencia": str(reporte["urgencia_id"]),
             "tipoReporte": str(reporte["tipo_reporte"]),
             "descripcion": reporte["descripcion"],
             "ubicacion": reporte["ubicacion"],
@@ -67,6 +71,7 @@ class ReporteRepository:
             "tamano": reporte["tamano"],
             "evidenciaUrl": reporte["evidencia"],
             "historialFases": historial_str,
+            "comentarios":comentarios_str
         }
 
     def actualizar_estado_reporte(self, reporte_id: int, nueva_fase_id: int, evidencia_url: str, usuario_id: int = None, comentarios: str = None):

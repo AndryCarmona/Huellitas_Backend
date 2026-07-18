@@ -67,6 +67,10 @@ class ReporteRepository:
             for h in historial_response.data
         ]
 
+        comentarios_str = None
+        if historial_str and len(historial_str)> 0:
+            comentarios_str=historial_str[0]["comentarios"]
+
         return {
             "reporteId": reporte["reporte_id"],
             "faseActual": reporte.get("fase_actual_id", 1),
@@ -81,6 +85,7 @@ class ReporteRepository:
             "usuarioRescateId": reporte.get("usuario_rescate_id"),
             "usuarioRescateNombre": usuario_rescate_nombre,
             "historialFases": historial_str,
+            "comentarios":comentarios_str
         }
 
     def actualizar_estado_reporte(self, reporte_id: int, nueva_fase_id: int, evidencia_url: str, usuario_id: int = None, comentarios: str = None):

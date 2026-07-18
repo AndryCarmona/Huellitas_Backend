@@ -28,13 +28,25 @@ class ReporteRepository:
             raza_id,
             tamano,
             evidencia,
-            fase_actual_id
+            fase_actual_id,
+            usuario_rescate_id
         """).eq("reporte_id", reporte_id).execute()
 
         if not reporte_response.data:
             raise ValueError("Reporte no encontrado")
 
         reporte = reporte_response.data[0]
+
+        usuario_rescate_nombre = None
+        if reporte.get("usuario_rescate_id"):
+            usuario_response = (
+                supabase.table("usuario")
+                .select("nombre")
+                .eq("usuario_id_pk", reporte["usuario_rescate_id"])
+                .execute()
+            )
+            if usuario_response.data:
+                usuario_rescate_nombre = usuario_response.data[0]["nombre"]
 
         historial_response = supabase.table("historial_fases_reporte").select("""
             fase_reporte(nombre),
@@ -46,11 +58,11 @@ class ReporteRepository:
 
         historial_str = [
             {
-                "fase_nombre":h["fase_reporte"]["nombre"],
+                "fase_nombre": h["fase_reporte"]["nombre"],
                 "fecha_cambio": h["fecha_cambio"],
-                "evidencia_url":h["evidencia_url"],
-                "comentarios":h.get("comentarios"),
-                "usuario_nombre":h.get("usuario",{}).get("nombre") if h.get("usuario") else None
+                "evidencia_url": h["evidencia_url"],
+                "comentarios": h.get("comentarios"),
+                "usuario_nombre": h.get("usuario", {}).get("nombre") if h.get("usuario") else None
             }
             for h in historial_response.data
         ]
@@ -58,7 +70,7 @@ class ReporteRepository:
         return {
             "reporteId": reporte["reporte_id"],
             "faseActual": reporte.get("fase_actual_id", 1),
-            "nivelUrgencia": str(reporte["urgencia_id"]),  # ← Corregido
+            "nivelUrgencia": str(reporte["urgencia_id"]),
             "tipoReporte": str(reporte["tipo_reporte"]),
             "descripcion": reporte["descripcion"],
             "ubicacion": reporte["ubicacion"],
@@ -66,11 +78,15 @@ class ReporteRepository:
             "raza": reporte["raza_id"],
             "tamano": reporte["tamano"],
             "evidenciaUrl": reporte["evidencia"],
+            "usuarioRescateId": reporte.get("usuario_rescate_id"),
+            "usuarioRescateNombre": usuario_rescate_nombre,
             "historialFases": historial_str,
         }
 
     def actualizar_estado_reporte(self, reporte_id: int, nueva_fase_id: int, evidencia_url: str, usuario_id: int = None, comentarios: str = None):
         """Actualiza la fase actual del reporte y guarda en el historial."""
+        self.validar_usuario_asignado(reporte_id, usuario_id)
+        
         supabase.table("reporte").update({
             "fase_actual_id": nueva_fase_id,
             "evidencia": evidencia_url
@@ -89,5 +105,58 @@ class ReporteRepository:
         # 3. Insertar en el historial
         supabase.table("historial_fases_reporte").insert(data_historial).execute()
 
+        return True
+    
+    def tomar_reporte(self, reporte_id: int, usuario_id: int):
+        """Asigna al usuario actual como responsable del rescate, si nadie lo tiene ya."""
+        response = (
+            supabase.table("reporte")
+            .select("usuario_rescate_id")
+            .eq("reporte_id", reporte_id)
+            .execute()
+        )
+        if not response.data:
+            raise ValueError("Reporte no encontrado")
+
+        asignado_actual = response.data[0].get("usuario_rescate_id")
+
+        if asignado_actual is not None and asignado_actual != usuario_id:
+            usuario_response = (
+                supabase.table("usuario")
+                .select("nombre")
+                .eq("usuario_id_pk", asignado_actual)
+                .execute()
+            )
+            nombre = usuario_response.data[0]["nombre"] if usuario_response.data else "otro usuario"
+            raise PermissionError(f"Este reporte ya está siendo atendido por {nombre}")
+
+        supabase.table("reporte").update({
+            "usuario_rescate_id": usuario_id
+        }).eq("reporte_id", reporte_id).execute()
 
         return True
+
+    def validar_usuario_asignado(self, reporte_id: int, usuario_id: int):
+        """Verifica que el usuario que intenta actualizar el estado sea quien tomó el reporte."""
+        response = (
+            supabase.table("reporte")
+            .select("usuario_rescate_id")
+            .eq("reporte_id", reporte_id)
+            .execute()
+        )
+        if not response.data:
+            raise ValueError("Reporte no encontrado")
+
+        asignado = response.data[0].get("usuario_rescate_id")
+
+        if asignado is None:
+            raise PermissionError("Debes tomar el reporte antes de actualizar su estado")
+        if asignado != usuario_id:
+            usuario_response = (
+                supabase.table("usuario")
+                .select("nombre")
+                .eq("usuario_id_pk", asignado)
+                .execute()
+            )
+            nombre = usuario_response.data[0]["nombre"] if usuario_response.data else "otro usuario"
+            raise PermissionError(f"No estás autorizado. Este reporte lo está atendiendo {nombre}")

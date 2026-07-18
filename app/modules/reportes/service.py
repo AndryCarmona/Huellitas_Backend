@@ -135,3 +135,7 @@ def actualizar_estado_reporte(reporte_id: int, nueva_fase_id: int, file_bytes: b
         "nueva_fase_id": nueva_fase_id,
         "evidencia_url": url_evidencia
     }
+
+def tomar_reporte(reporte_id: int, usuario_id: int):
+    """Asigna al usuario actual como responsable del rescate."""
+    return reporte_repo.tomar_reporte(reporte_id, usuario_id)

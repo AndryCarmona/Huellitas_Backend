@@ -4,7 +4,7 @@ from .service import crear_reporte, subir_evidencia, listar_reportes
 from app.core.security import get_current_user
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from .schemas import ReporteCreate, UploadResponse, ActualizarEstadoRequest
-from .service import crear_reporte, subir_evidencia, listar_reportes, obtener_estado_reporte, actualizar_estado_reporte
+from .service import crear_reporte, subir_evidencia, listar_reportes, obtener_estado_reporte, actualizar_estado_reporte, tomar_reporte
 
 router = APIRouter(prefix="/reportes", tags=["Reportes"])
 
@@ -61,5 +61,20 @@ async def actualizar_estado(
             comentarios=comentarios
         )
         return resultado
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/{reporte_id}/tomar")
+def tomar(reporte_id: int, usuario_actual: dict = Depends(get_current_user)):
+    """El usuario actual toma el reporte para iniciar/continuar el rescate."""
+    try:
+        tomar_reporte(reporte_id, usuario_actual["usuario_id_pk"])
+        return {"message": "Reporte asignado correctamente"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

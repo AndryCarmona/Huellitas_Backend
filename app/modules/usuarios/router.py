@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse
 from .service import UsuarioService
 from fastapi import Depends, Form, File, UploadFile
 from app.core.security import get_current_user
@@ -145,3 +145,14 @@ def foto_perfil_personalizada(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+@router.get("/{usuario_id}", response_model=UsuarioPublicoResponse)
+def obtener_perfil_publico(
+    usuario_id: int,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.obtener_perfil_publico(usuario_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

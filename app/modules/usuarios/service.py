@@ -156,3 +156,17 @@ class UsuarioService:
         url = supabase.storage.from_(BUCKET_FOTOS_PERFIL).get_public_url(ruta)
 
         return self.repository.actualizar_perfil(usuario_id, {"foto_perfil": url})
+    
+    def obtener_perfil_publico(self, usuario_id: int):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        return {
+            "usuario_id_pk": usuario["usuario_id_pk"],
+            "nombre": usuario["nombre"],
+            "apellidos": usuario["apellidos"],
+            "nombre_usuario": usuario.get("nombre_usuario"),
+            "foto_perfil": usuario.get("foto_perfil"),
+            "verificado": usuario["verificado"],
+        }

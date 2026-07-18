@@ -65,3 +65,12 @@ class CambiarContraseniaRequest(BaseModel):
 
 class ActualizarFotoPerfilRequest(BaseModel):
     foto_perfil: str 
+
+#Hacer públicos a los usuarios
+class UsuarioPublicoResponse(BaseModel):
+    usuario_id_pk: int
+    nombre: str
+    apellidos: str
+    nombre_usuario: str
+    foto_perfil: str | None = None
+    verificado: bool

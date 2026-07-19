@@ -167,6 +167,8 @@ class UsuarioService:
             "nombre": usuario["nombre"],
             "apellidos": usuario["apellidos"],
             "nombre_usuario": usuario.get("nombre_usuario"),
+            "correo": usuario["correo"],
+            "num_telefono": usuario["num_telefono"],
             "foto_perfil": usuario.get("foto_perfil"),
             "verificado": usuario["verificado"],
         }

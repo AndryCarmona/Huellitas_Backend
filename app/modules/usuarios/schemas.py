@@ -72,5 +72,7 @@ class UsuarioPublicoResponse(BaseModel):
     nombre: str
     apellidos: str
     nombre_usuario: str
+    correo: str
+    num_telefono: str
     foto_perfil: str | None = None
     verificado: bool

@@ -130,11 +130,46 @@ def actualizar_estado_reporte(reporte_id: int, nueva_fase_id: int, file_bytes: b
         comentarios=comentarios
     )
 
+    if nueva_fase_id == 3 and usuario_id is not None:
+        _verificar_insignia_rescate(usuario_id)
+
     return {
         "message": "Estado actualizado correctamente",
         "nueva_fase_id": nueva_fase_id,
         "evidencia_url": url_evidencia
     }
+
+#Insignias para rescates
+def _verificar_insignia_rescate(usuario_id: int):
+    """Cuenta cuántos reportes completo el usuario y otorga insignias."""
+    
+    response = (
+        supabase.table("historial_fases_reporte")
+        .select("id_historial_fases", count="exact")
+        .eq("fase_id", 3) 
+        .eq("usuario_id", usuario_id)
+        .execute()
+    )
+    
+    total_rescates = response.count or 0
+    print(f"Usuario {usuario_id} tiene {total_rescates} rescates")
+
+    insignias_categoria = insignia_repo.obtener_insignias_por_categoria("rescate")
+    insignias_ya_obtenidas = insignia_repo.obtener_insignias_de_usuario(usuario_id)
+    
+    ids_ya_obtenidas = {ins["insignias_id"] for ins in insignias_ya_obtenidas}
+
+    for insignia in insignias_categoria:
+        insignia_id = insignia["id_insignias"]
+        nivel = insignia["nivel"]
+
+        if insignia_id in ids_ya_obtenidas:
+            continue
+
+        umbral = UMBRAL_NIVEL.get(nivel, 999)
+        if total_rescates >= umbral:
+            insignia_repo.otorgar_insignia(usuario_id, insignia_id)
+            print(f"Usuario {usuario_id} obtuvo la insignia: {insignia['nombre']}")
 
 def tomar_reporte(reporte_id: int, usuario_id: int):
     """Asigna al usuario actual como responsable del rescate."""

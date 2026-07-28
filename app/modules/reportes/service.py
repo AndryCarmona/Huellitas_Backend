@@ -157,7 +157,7 @@ def _verificar_insignia_rescate(usuario_id: int):
     insignias_categoria = insignia_repo.obtener_insignias_por_categoria("rescate")
     insignias_ya_obtenidas = insignia_repo.obtener_insignias_de_usuario(usuario_id)
     
-    ids_ya_obtenidas = {ins["insignias_id"] for ins in insignias_ya_obtenidas}
+    ids_ya_obtenidas = {ins["insignia_id"] for ins in insignias_ya_obtenidas}
 
     for insignia in insignias_categoria:
         insignia_id = insignia["id_insignias"]

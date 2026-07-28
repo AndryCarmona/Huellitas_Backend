@@ -90,7 +90,7 @@ class ReporteRepository:
 
     def actualizar_estado_reporte(self, reporte_id: int, nueva_fase_id: int, evidencia_url: str, usuario_id: int = None, comentarios: str = None):
         """Actualiza la fase actual del reporte y guarda en el historial."""
-        #self.validar_usuario_asignado(reporte_id, usuario_id)
+        self.validar_usuario_asignado(reporte_id, usuario_id)
         
         supabase.table("reporte").update({
             "fase_actual_id": nueva_fase_id,

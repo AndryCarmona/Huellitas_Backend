@@ -4,6 +4,7 @@ from app.modules.reportes.router import router as reportes_router
 from app.modules.usuarios.router import router as usuarios_router
 from app.modules.insignias.router import router as insignias_router
 from app.modules.donaciones.router import router as donaciones_router
+from app.modules.embeddings.faiss_index import faiss_service
 
 app = FastAPI(title="Huellitas API")
 
@@ -13,13 +14,6 @@ app.include_router(usuarios_router)
 app.include_router(insignias_router)
 app.include_router(donaciones_router)
 
-@app.get("/diagnostico-embeddings")
-def diagnostico():
-    import faiss
-    import numpy as np
-    import requests
-    return {
-        "faiss_version": faiss.__version__,
-        "numpy_version": np.__version__,
-        "requests_version": requests.__version__,
-    }
+@app.on_event("startup")
+def cargar_indice_faiss():
+    faiss_service.construir_indice()

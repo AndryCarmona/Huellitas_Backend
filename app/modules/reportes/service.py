@@ -2,6 +2,8 @@ from app.core.database import supabase
 from .schemas import ReporteCreate
 from .repository import ReporteRepository
 from app.modules.insignias.repository import InsigniaRepository  
+from app.modules.embeddings.huggingface_client import generar_embedding_texto
+from app.modules.embeddings.faiss_index import faiss_service
 import uuid
 
 BUCKET_NAME="evidencia_reporte"
@@ -22,16 +24,61 @@ UMBRAL_NIVEL = {
     7: 100  
 }
 
-def crear_reporte(data: ReporteCreate):
+def crear_reporte(data: ReporteCreate, forzar_creacion: bool = False):
+    embedding = generar_embedding_texto(data.descripcion)
+
+    if not forzar_creacion:
+        candidatos = faiss_service.buscar_similares(
+            embedding=embedding,
+            latitud=data.latitud,
+            longitud=data.longitud,
+        )
+        if candidatos:
+            detalles = _obtener_detalles_candidatos(
+                [c["reporte_id"] for c in candidatos]
+            )
+            for c in candidatos:
+                c["detalle"] = detalles.get(c["reporte_id"])
+
+            return {
+                "posible_duplicado": True,
+                "candidatos": candidatos,
+                "reporte": None,
+            }
+
     payload = data.dict()
     payload["fecha_reporte"] = "now()"
-    print("PAYLOAD A INSERTAR:", payload)
+    payload["embedding_texto"] = embedding
 
     response = supabase.table("reporte").insert(payload).execute()
-    
+    reporte_creado = response.data[0]
+
+    faiss_service.agregar(
+        reporte_id=reporte_creado["reporte_id"],
+        embedding=embedding,
+        latitud=data.latitud,
+        longitud=data.longitud,
+        fecha_reporte=reporte_creado["fecha_reporte"],
+    )
+
     _verificar_insignias_reportes(data.usuario_id_fk)
 
-    return response.data
+    return {
+        "posible_duplicado": False,
+        "candidatos": None,
+        "reporte": reporte_creado,
+    }
+
+
+def _obtener_detalles_candidatos(reporte_ids: list[int]) -> dict[int, dict]:
+    response = (
+        supabase.table("reporte")
+        .select("reporte_id, descripcion, evidencia, tipo_animal, tamano")
+        .in_("reporte_id", reporte_ids)
+        .execute()
+    )
+    return {r["reporte_id"]: r for r in response.data}
+
 
 def subir_evidencia(file_bytes: bytes, filename: str) -> str:
     ext = filename.split(".")[-1]

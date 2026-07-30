@@ -46,3 +46,14 @@ class ReporteEstadoOut(BaseModel):
 class ActualizarEstadoRequest(BaseModel):
     nueva_fase_id: int
     comentarios: Optional[str] = None
+
+class CandidatoDuplicado(BaseModel):
+    reporte_id: int
+    score: float
+    distancia_km: float
+    detalle: Optional[dict] = None
+
+class RespuestaCrearReporte(BaseModel):
+    posible_duplicado: bool
+    candidatos: Optional[List[CandidatoDuplicado]] = None
+    reporte: Optional[ReporteOut] = None

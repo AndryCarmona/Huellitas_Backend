@@ -5,14 +5,14 @@ import numpy as np
 
 from app.core.database import supabase
 
-DIMENSION = 384
+DIMENSION = 512
 SCORE_MINIMO = 0.85
-DISTANCIA_MAXIMA_KM = 0.75  # ~750 metros
+DISTANCIA_MAXIMA_KM = 0.75
 DIAS_MAX_ANTIGUEDAD = 30
 FASE_CONCLUIDO = 3
 
 
-class FaissIndexService:
+class FaissIndexImagenService:
     def __init__(self):
         self.index = faiss.IndexFlatIP(DIMENSION)
         self.reporte_ids: list[int] = []
@@ -24,17 +24,14 @@ class FaissIndexService:
         return arr
 
     def construir_indice(self):
-        """Se llama al arrancar el servidor. Lee todos los reportes ACTIVOS
-        (no concluidos) que ya tienen embedding guardado, y arma el índice
-        desde cero en memoria."""
         self.index = faiss.IndexFlatIP(DIMENSION)
         self.reporte_ids = []
         self.metadata = {}
 
         response = (
             supabase.table("reporte")
-            .select("reporte_id, embedding_texto, latitud, longitud, fecha_reporte, tipo_animal")
-            .not_.is_("embedding_texto", "null")
+            .select("reporte_id, embedding_imagen, latitud, longitud, fecha_reporte, tipo_animal")
+            .not_.is_("embedding_imagen", "null")
             .execute()
         )
         reportes = response.data
@@ -58,7 +55,7 @@ class FaissIndexService:
             if fase_actual == FASE_CONCLUIDO:
                 continue
 
-            embedding = r.get("embedding_texto")
+            embedding = r.get("embedding_imagen")
             if not embedding:
                 continue
 
@@ -76,7 +73,7 @@ class FaissIndexService:
             faiss.normalize_L2(arr)
             self.index.add(arr)
 
-        print(f"[FAISS] Índice construido con {len(self.reporte_ids)} reportes activos")
+        print(f"[FAISS-Imagen] Índice construido con {len(self.reporte_ids)} reportes activos")
 
     def agregar(
         self,
@@ -87,7 +84,6 @@ class FaissIndexService:
         fecha_reporte: str,
         tipo_animal: int,
     ):
-        """Agrega un reporte recién publicado al índice sin reconstruir todo."""
         arr = self._normalizar(embedding)
         self.index.add(arr)
         self.reporte_ids.append(reporte_id)
@@ -106,15 +102,10 @@ class FaissIndexService:
         tipo_animal: int,
         top_k: int = 5,
     ) -> list[dict]:
-        """Busca los reportes más parecidos por texto, cercanos en ubicación,
-        del mismo tipo de animal, y publicados dentro de la ventana de tiempo
-        considerada relevante."""
         if self.index.ntotal == 0:
             return []
 
         arr = self._normalizar(embedding)
-        # Pedimos más candidatos de los que necesitamos, porque luego
-        # vamos a descartar varios por los filtros de tipo/fecha/distancia.
         k_busqueda = min(top_k * 4, self.index.ntotal)
         scores, posiciones = self.index.search(arr, k_busqueda)
 
@@ -130,11 +121,9 @@ class FaissIndexService:
             if not meta:
                 continue
 
-            # Filtro duro: nunca comparar entre especies distintas
             if meta["tipo_animal"] != tipo_animal:
                 continue
 
-            # Filtro de recencia: ignorar reportes demasiado antiguos
             fecha_reporte = meta["fecha_reporte"]
             if isinstance(fecha_reporte, str):
                 fecha_reporte = datetime.fromisoformat(fecha_reporte.replace("Z", "+00:00"))
@@ -171,4 +160,4 @@ class FaissIndexService:
         return R * c
 
 
-faiss_service = FaissIndexService()
+faiss_imagen_service = FaissIndexImagenService()

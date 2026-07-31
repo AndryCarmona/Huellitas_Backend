@@ -3,7 +3,10 @@ from .schemas import ReporteCreate
 from .repository import ReporteRepository
 from app.modules.insignias.repository import InsigniaRepository  
 from app.modules.embeddings.huggingface_client import generar_embedding_texto
+from app.modules.embeddings.roboflow_client import generar_embedding_imagen
 from app.modules.embeddings.faiss_index import faiss_service
+from app.modules.embeddings.faiss_index_imagen import faiss_imagen_service
+
 import uuid
 
 BUCKET_NAME="evidencia_reporte"
@@ -24,41 +27,75 @@ UMBRAL_NIVEL = {
     7: 100  
 }
 
+TIPO_ANIMAL_LABELS = {1: "perro", 2: "gato"}
+
+def _construir_texto_embedding(data: ReporteCreate) -> str:
+    """Combina los campos estructurados (tipo, raza, tamaño) con la
+    descripción libre, para que el embedding capture toda la información
+    disponible del animal, no solo lo que el usuario escribió a mano."""
+    animal_label = TIPO_ANIMAL_LABELS.get(data.tipo_animal, "animal")
+    return (
+        f"{animal_label}, raza {data.raza_id}, tamaño {data.tamano}. "
+        f"{data.descripcion}"
+    )
+
 def crear_reporte(data: ReporteCreate, forzar_creacion: bool = False):
-    embedding = generar_embedding_texto(data.descripcion)
+    texto_embedding = _construir_texto_embedding(data)
+    embedding_texto = generar_embedding_texto(texto_embedding)
+    embedding_imagen = generar_embedding_imagen(data.evidencia)
 
     if not forzar_creacion:
-        candidatos = faiss_service.buscar_similares(
-            embedding=embedding,
+        candidatos_texto = faiss_service.buscar_similares(
+            embedding=embedding_texto,
             latitud=data.latitud,
             longitud=data.longitud,
+            tipo_animal=data.tipo_animal,
         )
-        if candidatos:
+        candidatos_imagen = faiss_imagen_service.buscar_similares(
+            embedding=embedding_imagen,
+            latitud=data.latitud,
+            longitud=data.longitud,
+            tipo_animal=data.tipo_animal,
+        )
+
+        candidatos_combinados = _combinar_candidatos(candidatos_texto, candidatos_imagen)
+
+        if candidatos_combinados:
             detalles = _obtener_detalles_candidatos(
-                [c["reporte_id"] for c in candidatos]
+                [c["reporte_id"] for c in candidatos_combinados]
             )
-            for c in candidatos:
+            for c in candidatos_combinados:
                 c["detalle"] = detalles.get(c["reporte_id"])
 
             return {
                 "posible_duplicado": True,
-                "candidatos": candidatos,
+                "candidatos": candidatos_combinados,
                 "reporte": None,
             }
 
     payload = data.dict()
     payload["fecha_reporte"] = "now()"
-    payload["embedding_texto"] = embedding
+    payload["embedding_texto"] = embedding_texto
+    payload["embedding_imagen"] = embedding_imagen
 
     response = supabase.table("reporte").insert(payload).execute()
     reporte_creado = response.data[0]
 
     faiss_service.agregar(
         reporte_id=reporte_creado["reporte_id"],
-        embedding=embedding,
+        embedding=embedding_texto,
         latitud=data.latitud,
         longitud=data.longitud,
         fecha_reporte=reporte_creado["fecha_reporte"],
+        tipo_animal=data.tipo_animal,
+    )
+    faiss_imagen_service.agregar(
+        reporte_id=reporte_creado["reporte_id"],
+        embedding=embedding_imagen,
+        latitud=data.latitud,
+        longitud=data.longitud,
+        fecha_reporte=reporte_creado["fecha_reporte"],
+        tipo_animal=data.tipo_animal,
     )
 
     _verificar_insignias_reportes(data.usuario_id_fk)
@@ -69,6 +106,32 @@ def crear_reporte(data: ReporteCreate, forzar_creacion: bool = False):
         "reporte": reporte_creado,
     }
 
+def _combinar_candidatos(candidatos_texto: list[dict], candidatos_imagen: list[dict]) -> list[dict]:
+    """Une los candidatos de ambas búsquedas por reporte_id. Si un mismo
+    reporte aparece en ambas listas, se queda con el score más alto y se
+    guardan ambos scores para referencia."""
+    combinados: dict[int, dict] = {}
+
+    for c in candidatos_texto:
+        combinados[c["reporte_id"]] = {
+            "reporte_id": c["reporte_id"],
+            "score_texto": c["score"],
+            "score_imagen": None,
+            "distancia_km": c["distancia_km"],
+        }
+
+    for c in candidatos_imagen:
+        if c["reporte_id"] in combinados:
+            combinados[c["reporte_id"]]["score_imagen"] = c["score"]
+        else:
+            combinados[c["reporte_id"]] = {
+                "reporte_id": c["reporte_id"],
+                "score_texto": None,
+                "score_imagen": c["score"],
+                "distancia_km": c["distancia_km"],
+            }
+
+    return list(combinados.values())
 
 def _obtener_detalles_candidatos(reporte_ids: list[int]) -> dict[int, dict]:
     response = (

@@ -49,7 +49,8 @@ class ActualizarEstadoRequest(BaseModel):
 
 class CandidatoDuplicado(BaseModel):
     reporte_id: int
-    score: float
+    score_texto: Optional[float] = None
+    score_imagen: Optional[float] = None
     distancia_km: float
     detalle: Optional[dict] = None
 

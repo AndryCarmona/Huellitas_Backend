@@ -248,6 +248,19 @@ def actualizar_grupo(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/grupos/{grupo_id}/miembros", response_model=List[MiembroGrupoResponse])
+def obtener_miembros_grupo(
+    grupo_id: int,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = GrupoService()
+    try:
+        return service.obtener_miembros_grupo(grupo_id, usuario_actual["usuario_id_pk"])
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.patch("/grupos/{grupo_id}/imagenes", response_model=GrupoResponse)
 def actualizar_imagenes_grupo(
     grupo_id: int,

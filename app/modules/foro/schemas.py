@@ -108,7 +108,7 @@ class MiembroGrupoResponse(BaseModel):
     foto_usuario: Optional[str] = None
     rol: str
     estado: str
-    fecha_solicitud: datetime
+    fecha_solicitud: Optional[datetime] = None
     fecha_ingreso: Optional[datetime] = None
 
     class Config:

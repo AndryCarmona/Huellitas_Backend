@@ -1,5 +1,6 @@
 from datetime import datetime
 from fastapi import UploadFile
+from typing import List
 from .repository import PublicacionRepository, ComentarioRepository, GrupoRepository
 from .schemas import (CrearPublicacionRequest, ActualizarPublicacionRequest, CrearComentarioRequest, CrearGrupoRequest,ActualizarGrupoRequest)
 from app.core.database import supabase
@@ -333,7 +334,6 @@ class GrupoService:
         if not g or g["estado"] == "eliminado":
             raise ValueError("Grupo no encontrado")
         if g["creador_usuario"] != usuario_id:
-            # O validar si es admin con obtener_miembro
             miembro = self.repository.obtener_miembro(grupo_id, usuario_id)
             if not miembro or miembro["rol"] != "administrador":
                 raise ValueError("No tienes permiso para editar este grupo")
@@ -356,14 +356,12 @@ class GrupoService:
         if not g or g["estado"] == "eliminado":
             raise ValueError("Grupo no encontrado")
         
-        # Verificar que sea admin
         miembro = self.repository.obtener_miembro(grupo_id, usuario_id)
         if not miembro or miembro["rol"] != "administrador":
             raise ValueError("Solo los administradores pueden editar el grupo")
 
         updates = {k: v for k, v in data.dict().items() if v is not None}
 
-        # Subir imágenes si vienen
         try:
             if foto_perfil is not None and foto_perfil.filename:
                 updates["foto_perfil"] = self._subir_imagen_grupo(grupo_id, foto_perfil, "perfil")
@@ -461,3 +459,36 @@ class GrupoService:
             raise ValueError("Solo administradores pueden eliminar miembros")
         self.repository.eliminar_miembro(grupo_id, usuario_id_a_eliminar)
         return {"mensaje": "Miembro eliminado"}
+
+    def obtener_miembros_grupo(self, grupo_id: int, usuario_id: int) -> List[dict]:
+        g = self.repository.obtener_por_id(grupo_id)
+        if not g or g["estado"] == "eliminado":
+            raise ValueError("Grupo no encontrado")
+
+        miembros = self.repository.obtener_miembros(grupo_id)
+
+        usuarios_vistos = set()
+        miembros_unicos = []
+        for m in miembros:
+            if m["usuario_id_fk"] not in usuarios_vistos:
+                usuarios_vistos.add(m["usuario_id_fk"])
+                miembros_unicos.append(m)
+
+        resultado = []
+        for m in miembros_unicos:
+            u = supabase.table("usuario").select(
+                "nombre, foto_perfil"
+            ).eq("usuario_id_pk", m["usuario_id_fk"]).execute()
+            u_data = u.data[0] if u.data else {"nombre": "Desconocido", "foto_perfil": None}
+            
+            resultado.append({
+                "miembro_id": m["miembro_id"],
+                "usuario_id_fk": m["usuario_id_fk"],
+                "nombre_usuario": u_data["nombre"],
+                "foto_usuario": u_data.get("foto_perfil"),
+                "rol": m["rol"],
+                "estado": m["estado"],
+                "fecha_solicitud": m.get("fecha_solicitud"),
+                "fecha_ingreso": m.get("fecha_ingreso"),
+            })
+        return resultado

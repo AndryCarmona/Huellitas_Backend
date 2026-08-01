@@ -6,6 +6,7 @@ from app.modules.insignias.router import router as insignias_router
 from app.modules.donaciones.router import router as donaciones_router
 from app.modules.embeddings.faiss_index import faiss_service
 from app.modules.embeddings.faiss_index_imagen import faiss_imagen_service
+from app.modules.foro.router import router as foro_router
 
 app = FastAPI(title="Huellitas API")
 
@@ -14,8 +15,10 @@ app.include_router(reportes_router)
 app.include_router(usuarios_router)
 app.include_router(insignias_router)
 app.include_router(donaciones_router)
+app.include_router(foro_router)
 
 @app.on_event("startup")
 def cargar_indice_faiss():
     faiss_service.construir_indice()
     faiss_imagen_service.construir_indice()
+

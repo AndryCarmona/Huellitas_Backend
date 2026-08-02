@@ -30,14 +30,12 @@ UMBRAL_NIVEL = {
 TIPO_ANIMAL_LABELS = {1: "perro", 2: "gato"}
 
 def _construir_texto_embedding(data: ReporteCreate) -> str:
-    """Combina los campos estructurados (tipo, raza, tamaño) con la
-    descripción libre, para que el embedding capture toda la información
-    disponible del animal, no solo lo que el usuario escribió a mano."""
-    animal_label = TIPO_ANIMAL_LABELS.get(data.tipo_animal, "animal")
-    return (
-        f"{animal_label}, raza {data.raza_id}, tamaño {data.tamano}. "
-        f"{data.descripcion}"
-    )
+    """El embedding se genera únicamente de la descripción libre.
+    Tipo de animal ya se filtra de forma dura por separado; raza y
+    tamaño se excluyen porque distorsionan la similitud semántica
+    (dos reportes del mismo animal casi nunca coinciden en la raza
+    percibida por el usuario)."""
+    return data.descripcion
 
 def crear_reporte(data: ReporteCreate, forzar_creacion: bool = False):
     texto_embedding = _construir_texto_embedding(data)

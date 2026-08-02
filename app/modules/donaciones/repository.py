@@ -17,10 +17,15 @@ class DonacionRepository:
         response = (supabase.table("organizaciones").select("*").eq("id", organizacion_id).execute())
         return response.data[0] if response.data else None
 
-    def crear_donacion(self, donacion_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Inserta una nueva donación en la base de datos."""
-        response = (supabase.table("donaciones").insert(donacion_data).execute())
-        return response.data[0]
+    def obtener_tarjeta_por_id(self, tarjeta_id: int) -> Optional[Dict[str, Any]]:
+        """Obtiene una tarjeta por su ID (solo datos básicos para validación)."""
+        response = (supabase.table("tarjetas_usuario").select("tarjeta_id, usuario_id").eq("tarjeta_id", tarjeta_id).execute())
+        return response.data[0] if response.data else None
+
+    #def crear_donacion(self, donacion_data: Dict[str, Any]) -> Dict[str, Any]:
+    #    """Inserta una nueva donación en la base de datos."""
+    #    response = (supabase.table("donaciones").insert(donacion_data).execute())
+    #    return response.data[0]
 
     def contar_donaciones_usuario(self, usuario_id: int) -> int:
         """Cuenta el total de donaciones completadas de un usuario."""

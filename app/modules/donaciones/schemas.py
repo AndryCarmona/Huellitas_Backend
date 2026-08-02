@@ -16,10 +16,8 @@ class DonacionCreate(BaseModel):
     usuarioId: int = Field(alias="usuario_id")
     organizacionId: int = Field(alias="organizacion_id")
     monto: float
-    numeroTarjeta: str = Field(alias="numero_tarjeta")
-    titularTarjeta: str = Field(alias="titular_tarjeta")
-    cvv: str
-    fechaVencimiento: str = Field(alias="fecha_vencimiento")
+    tarjetaId: int = Field(alias="tarjeta_id")
+    metodoPago: str = Field(default="tarjeta", alias="metodo_pago")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -28,11 +26,9 @@ class DonacionResponse(BaseModel):
     usuarioId: int = Field(alias="usuario_id")
     organizacionId: int = Field(alias="organizacion_id")
     monto: float
-    numeroTarjeta: str = Field(alias="numero_tarjeta")
-    titularTarjeta: str = Field(alias="titular_tarjeta")
-    cvv: str
-    fechaVencimiento: str = Field(alias="fecha_vencimiento")
+    tarjetaId: int = Field(alias="tarjeta_id")
+    metodoPago: str = Field(default="tarjeta", alias="metodo_pago")
     fechaDonacion: datetime = Field(alias="fecha_donacion")
     estado: str
-
+    
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

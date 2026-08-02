@@ -131,7 +131,12 @@ def _combinar_candidatos(candidatos_texto: list[dict], candidatos_imagen: list[d
                 "distancia_km": c["distancia_km"],
             }
 
-    return list(combinados.values())
+    resultado = list(combinados.values())
+    resultado.sort(
+        key=lambda c: max(c["score_texto"] or 0, c["score_imagen"] or 0),
+        reverse=True,
+    )
+    return resultado
 
 def _obtener_detalles_candidatos(reporte_ids: list[int]) -> dict[int, dict]:
     response = (

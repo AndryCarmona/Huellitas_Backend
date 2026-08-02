@@ -51,11 +51,26 @@ class TarjetaService:
 
         update_data = {}
 
+        if data.numeroTarjeta is not None:
+            numero_limpio = data.numeroTarjeta.replace(' ', '')
+            if len(numero_limpio) < 13 or len(numero_limpio) > 19:
+                raise ValueError("Número de tarjeta inválido")
+            
+            update_data["numero_encriptado"] = encriptar_numero(numero_limpio)
+            update_data["numero_enmascarado"] = enmascarar_numero(numero_limpio)
+            update_data["tipo"] = detectar_tipo_tarjeta(numero_limpio)
+
         if data.titular is not None:
-            update_data["titular"] = data.titular
+            update_data["titular"] = data.titular.upper()
+
         if data.fechaVencimiento is not None:
             update_data["fecha_vencimiento"] = data.fechaVencimiento
 
+        if data.cvv is not None:
+            cvv_limpio = data.cvv.replace(' ', '')
+            if not (3 <= len(cvv_limpio) <= 4 and cvv_limpio.isdigit()):
+                raise ValueError("CVV inválido. Debe tener 3 o 4 dígitos.")
+            
         if data.esPredeterminada is True:
             self.repository.quitar_predeterminada_de_usuario(tarjeta["usuario_id"])
             update_data["es_predeterminada"] = True
@@ -63,9 +78,11 @@ class TarjetaService:
             update_data["es_predeterminada"] = False
 
         if not update_data:
+            tarjeta.pop("numero_encriptado", None)
             return tarjeta
 
         tarjeta_actualizada = self.repository.actualizar_tarjeta(tarjeta_id, update_data)
+        
         tarjeta_actualizada.pop("numero_encriptado", None)
         return tarjeta_actualizada
 

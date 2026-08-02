@@ -14,8 +14,10 @@ class TarjetaCreate(BaseModel):
 
 
 class TarjetaUpdate(BaseModel):
+    numeroTarjeta: Optional[str] = Field(default=None, alias="numero_tarjeta")
     titular: Optional[str] = None
     fechaVencimiento: Optional[str] = Field(default=None, alias="fecha_vencimiento")
+    cvv: Optional[str] = None 
     esPredeterminada: Optional[bool] = Field(default=None, alias="es_predeterminada")
 
     model_config = ConfigDict(populate_by_name=True)

@@ -466,7 +466,6 @@ class GrupoService:
             raise ValueError("Grupo no encontrado")
 
         miembros = self.repository.obtener_miembros(grupo_id)
-
         usuarios_vistos = set()
         miembros_unicos = []
         for m in miembros:

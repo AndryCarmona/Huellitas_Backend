@@ -4,10 +4,10 @@ from .schemas import DonacionCreate
 from .repository import DonacionRepository
 from app.modules.insignias.repository import InsigniaRepository
 
-# Instancia del repositorio de insignias
+#Repos
 insignia_repo = InsigniaRepository()
 
-# Umbrales de insignias por nivel
+# Umbrales de insignias
 UMBRAL_NIVEL = {
     1: 1,    # Nivel 1: 1 donación
     2: 3,    # Nivel 2: 3 donaciones
@@ -34,30 +34,28 @@ class DonacionService:
     def crear_donacion(self, data: DonacionCreate):
         """Crea una nueva donación y verifica insignias."""
         
-        # 1. Validar que la organización exista
         organizacion = self.repository.obtener_organizacion_por_id(data.organizacionId)
         if not organizacion:
             raise ValueError("Organización no encontrada")
 
-        # 2. Preparar datos para Supabase
+        tarjeta = self.repository.obtener_tarjeta_por_id(data.tarjetaId)
+        if not tarjeta:
+            raise ValueError("Tarjeta no encontrada")
+        if tarjeta["usuario_id"] != data.usuarioId:
+            raise ValueError("La tarjeta no pertenece al usuario")
+
         payload = {
             "usuario_id": data.usuarioId,
             "organizacion_id": data.organizacionId,
             "monto": data.monto,
-            "numero_tarjeta": data.numeroTarjeta,
-            "titular_tarjeta": data.titularTarjeta,
-            "cvv": data.cvv,
-            "fecha_vencimiento": data.fechaVencimiento,
+            "tarjeta_id": data.tarjetaId,
+            "metodo_pago": data.metodoPago,
             "fecha_donacion": "now()",
             "estado": "completada"
         }
 
-        print("PAYLOAD A INSERTAR:", payload)
-
-        # 3. Guardar en Supabase
         response = supabase.table("donaciones").insert(payload).execute()
         
-        # 4. Verificar insignias por donación
         self._verificar_insignias_donaciones(data.usuarioId)
 
         return response.data

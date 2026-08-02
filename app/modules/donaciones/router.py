@@ -4,7 +4,6 @@ from .schemas import DonacionCreate, OrganizacionResponse
 
 router = APIRouter(prefix="/donaciones", tags=["Donaciones"])
 
-# Instancia única del servicio
 donacion_service = DonacionService()
 
 @router.get("/organizaciones", response_model=list[OrganizacionResponse])

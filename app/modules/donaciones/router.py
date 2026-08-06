@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from .service import DonacionService
-from .schemas import DonacionCreate, OrganizacionResponse
+from .schemas import DonacionCreate, OrganizacionResponse, DonacionResponse
+from app.core.security import get_current_user
 
 router = APIRouter(prefix="/donaciones", tags=["Donaciones"])
 

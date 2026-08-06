@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional,List
+from typing import Optional
 
 class ReporteCreate(BaseModel):
     tipo_animal: int
@@ -10,15 +10,9 @@ class ReporteCreate(BaseModel):
     ubicacion: str
     tipo_reporte: int
     urgencia_id: int
-    evidencia: str
+    evidencia: Optional[str]
     usuario_id_fk: int
-    latitud: float
-    longitud: float
-    fase_actual_id: int
 
 class ReporteOut(ReporteCreate):
     reporte_id: int
     fecha_reporte: datetime
-
-class UploadResponse(BaseModel):
-    url: str

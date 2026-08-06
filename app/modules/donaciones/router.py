@@ -35,3 +35,16 @@ def crear_donacion(donacion: DonacionCreate):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al procesar la donación: {str(e)}")
+    
+@router.get("/usuario/mis-donaciones", response_model=list[DonacionResponse])
+def obtener_mis_donaciones(current_user: dict = Depends(get_current_user)):
+    """Obtiene el historial de donaciones del usuario"""
+    try:
+        usuario_id = current_user["usuario_id_pk"]
+        donaciones = donacion_service.obtener_donaciones_usuario(usuario_id)
+        return donaciones
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al obtener donaciones: {str(e)}"
+        )

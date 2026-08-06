@@ -7,6 +7,7 @@ class UsuarioCreate(BaseModel):
     contrasenia: str
     nombre: str
     apellidos: str
+    nombre_usuario: str
     num_telefono: str
     fecha_nacimiento: date
     calle: Optional[str] = None
@@ -19,7 +20,7 @@ class UsuarioCreate(BaseModel):
     foto_selfie: Optional[str] = None
 
 class UsuarioLogin(BaseModel):
-    correo: EmailStr
+    identificador: str
     contrasenia: str
 
 class UsuarioResponse(BaseModel):
@@ -27,11 +28,18 @@ class UsuarioResponse(BaseModel):
     correo: str
     nombre: str
     apellidos: str
+    nombre_usuario: Optional[str] = None
     num_telefono: str
     fecha_nacimiento: date
     verificado: bool
     fecha_registro_usuario: datetime
     rol_usuario: str
+    calle: Optional[str] = None
+    colonia: Optional[str] = None
+    cp: Optional[str] = None
+    ciudad: Optional[str] = None
+    estado: Optional[str] = None
+    foto_perfil: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -39,3 +47,32 @@ class UsuarioResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+#ACTUALIZAR INFO
+class EditarPerfilRequest(BaseModel):
+    nombre: Optional[str] = None
+    apellidos: Optional[str] = None
+    nombre_usuario: Optional[str] = None 
+    num_telefono: Optional[str] = None
+    calle: Optional[str] = None
+    colonia: Optional[str] = None
+    cp: Optional[str] = None
+    ciudad: Optional[str] = None
+
+class CambiarContraseniaRequest(BaseModel):
+    contrasenia_actual: str
+    contrasenia_nueva: str
+
+class ActualizarFotoPerfilRequest(BaseModel):
+    foto_perfil: str 
+
+#Hacer públicos a los usuarios
+class UsuarioPublicoResponse(BaseModel):
+    usuario_id_pk: int
+    nombre: str
+    apellidos: str
+    nombre_usuario: str
+    correo: str
+    num_telefono: str
+    foto_perfil: str | None = None
+    verificado: bool

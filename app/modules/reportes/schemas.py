@@ -14,7 +14,6 @@ class ReporteCreate(BaseModel):
     usuario_id_fk: int
     latitud: float
     longitud: float
-    fase_actual_id: int
 
 class ReporteOut(ReporteCreate):
     reporte_id: int
@@ -22,3 +21,40 @@ class ReporteOut(ReporteCreate):
 
 class UploadResponse(BaseModel):
     url: str
+
+class HistorialFaseOut(BaseModel):
+    fase_nombre: str
+    fecha_cambio: datetime
+    evidencia_url: Optional[str] = None
+    comentarios:Optional[str] = None
+    usuario_nombre:Optional[str] = None
+
+class ReporteEstadoOut(BaseModel):
+    reporteId: int
+    faseActual: int
+    nivelUrgencia: str
+    tipoReporte: str
+    descripcion: str
+    ubicacion: str
+    tipoAnimal: str
+    raza: str
+    tamano: str
+    evidenciaUrl: Optional[str] = None
+    historialFases: List[str] = []
+    comentarios: Optional[str] = None
+
+class ActualizarEstadoRequest(BaseModel):
+    nueva_fase_id: int
+    comentarios: Optional[str] = None
+
+class CandidatoDuplicado(BaseModel):
+    reporte_id: int
+    score_texto: Optional[float] = None
+    score_imagen: Optional[float] = None
+    distancia_km: float
+    detalle: Optional[dict] = None
+
+class RespuestaCrearReporte(BaseModel):
+    posible_duplicado: bool
+    candidatos: Optional[List[CandidatoDuplicado]] = None
+    reporte: Optional[ReporteOut] = None

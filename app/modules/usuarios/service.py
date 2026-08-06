@@ -3,12 +3,13 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext 
 from .repository import UsuarioRepository
-from .schemas import UsuarioCreate
+from .schemas import UsuarioCreate, EditarPerfilRequest
 from app.core.database import supabase
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 BUCKET_NAME = "usuarios-completar-perfil"
+BUCKET_FOTOS_PERFIL = "fotos-perfil"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -28,14 +29,19 @@ class UsuarioService:
         existing_usuario = self.repository.obtener_correo(usuario_data.correo)
         if existing_usuario:
             raise ValueError("El correo ya está registrado")
-        
+
+        existing_username = self.repository.obtener_por_nombre_usuario(usuario_data.nombre_usuario)
+        if existing_username:
+            raise ValueError("El nombre de usuario ya está en uso")
+
         contrasenia = pwd_context.hash(usuario_data.contrasenia)
-        
+
         payload = {
             "correo": usuario_data.correo,
             "contrasenia": contrasenia,
             "nombre": usuario_data.nombre,
             "apellidos": usuario_data.apellidos,
+            "nombre_usuario": usuario_data.nombre_usuario,
             "num_telefono": usuario_data.num_telefono,
             "fecha_nacimiento": usuario_data.fecha_nacimiento.isoformat(),
             "calle": usuario_data.calle,
@@ -45,19 +51,23 @@ class UsuarioService:
             "identificacion_frontal": usuario_data.identificacion_frontal,
             "identificacion_trasera": usuario_data.identificacion_trasera,
             "verificado": False,
-            "rol_usuario": "usuario"
+            "rol_usuario": "usuario",
         }
-        
+
         return self.repository.crear_usuario(payload)
-    
-    def iniciar_sesion(self, correo: str, password: str):
-        usuario = self.repository.obtener_correo(correo)
+
+    def iniciar_sesion(self, identificador: str, password: str):
+        if "@" in identificador:
+            usuario = self.repository.obtener_correo(identificador)
+        else:
+            usuario = self.repository.obtener_por_nombre_usuario(identificador)
+
         if not usuario:
             return None
-        
+
         if not pwd_context.verify(password, usuario["contrasenia"]):
             return None
-            
+
         return usuario
     
     # Completar_perfil
@@ -92,3 +102,73 @@ class UsuarioService:
             "rol_usuario": "usuario_verificado",
         }
         return self.repository.actualizar_perfil(usuario_id, data)
+
+    #Actualizar info del perfil
+    def editar_perfil(self, usuario_id: int, datos: EditarPerfilRequest):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        data = {k: v for k, v in datos.dict().items() if v is not None}
+
+        if not data:
+            raise ValueError("No se enviaron campos para actualizar")
+
+        if "nombre_usuario" in data:
+            existente = self.repository.obtener_por_nombre_usuario(data["nombre_usuario"])
+            if existente and existente["usuario_id_pk"] != usuario_id:
+                raise ValueError("El nombre de usuario ya está en uso")
+
+        return self.repository.actualizar_perfil(usuario_id, data)
+
+    def cambiar_contrasenia(self, usuario_id: int, contrasenia_actual: str, contrasenia_nueva: str):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        if not pwd_context.verify(contrasenia_actual, usuario["contrasenia"]):
+            raise ValueError("La contraseña actual es incorrecta")
+
+        nueva_hasheada = pwd_context.hash(contrasenia_nueva)
+        self.repository.actualizar_perfil(usuario_id, {"contrasenia": nueva_hasheada})
+
+        return {"mensaje": "Contraseña actualizada correctamente"}
+
+    def actualizar_foto_perfil_catalogo(self, usuario_id: int, nombre_avatar: str):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        return self.repository.actualizar_perfil(usuario_id, {"foto_perfil": nombre_avatar})
+
+    def subir_foto_perfil_personalizada(self, usuario_id: int, archivo):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        contenido = archivo.file.read()
+        extension = archivo.filename.split(".")[-1]
+        ruta = f"{usuario_id}/perfil.{extension}"
+
+        supabase.storage.from_(BUCKET_FOTOS_PERFIL).upload(
+            ruta, contenido, {"content-type": archivo.content_type, "upsert": "true"}
+        )
+        url = supabase.storage.from_(BUCKET_FOTOS_PERFIL).get_public_url(ruta)
+
+        return self.repository.actualizar_perfil(usuario_id, {"foto_perfil": url})
+    
+    def obtener_perfil_publico(self, usuario_id: int):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        return {
+            "usuario_id_pk": usuario["usuario_id_pk"],
+            "nombre": usuario["nombre"],
+            "apellidos": usuario["apellidos"],
+            "nombre_usuario": usuario.get("nombre_usuario"),
+            "correo": usuario["correo"],
+            "num_telefono": usuario["num_telefono"],
+            "foto_perfil": usuario.get("foto_perfil"),
+            "verificado": usuario["verificado"],
+        }

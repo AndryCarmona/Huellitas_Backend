@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse, SolicitarCodigoRequest, ConfirmarCodigoRequest
 from .service import UsuarioService
 from fastapi import Depends, Form, File, UploadFile
 from app.core.security import get_current_user
@@ -156,3 +156,22 @@ def obtener_perfil_publico(
         return service.obtener_perfil_publico(usuario_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+@router.post("/enviar-codigo")
+async def enviar_codigo(datos: SolicitarCodigoRequest):
+    service = UsuarioService()
+    try:
+        return await service.solicitar_codigo_correo(datos.correo)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al enviar código: {str(e)}")
+
+
+@router.post("/confirmar-codigo")
+def confirmar_codigo(datos: ConfirmarCodigoRequest):
+    service = UsuarioService()
+    try:
+        return service.confirmar_codigo_correo(datos.correo, datos.codigo)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

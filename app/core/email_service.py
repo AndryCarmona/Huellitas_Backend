@@ -1,10 +1,12 @@
 import os
 import random
-import aiosmtplib
-from email.message import EmailMessage
+import requests
 
-GMAIL_USER = os.getenv("GMAIL_USER")
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+BREVO_REMITENTE_CORREO = os.getenv("BREVO_REMITENTE_CORREO")
+BREVO_REMITENTE_NOMBRE = "Huellitas"
+
+BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 def generar_codigo_verificacion() -> str:
@@ -13,16 +15,14 @@ def generar_codigo_verificacion() -> str:
 
 
 async def enviar_correo_verificacion(destinatario: str, codigo: str, nombre_usuario: str = ""):
-    """Envía el correo con el código de verificación vía Gmail SMTP."""
-    mensaje = EmailMessage()
-    mensaje["From"] = f"Huellitas <{GMAIL_USER}>"
-    mensaje["To"] = destinatario
-    mensaje["Subject"] = "Tu código de verificación - Huellitas"
-
+    """Envía el correo con el código de verificación vía la API HTTPS de Brevo."""
     saludo = f"Hola {nombre_usuario}," if nombre_usuario else "Hola,"
 
-    mensaje.set_content(f"""
-{saludo}
+    payload = {
+        "sender": {"name": BREVO_REMITENTE_NOMBRE, "email": BREVO_REMITENTE_CORREO},
+        "to": [{"email": destinatario}],
+        "subject": "Tu código de verificación - Huellitas",
+        "textContent": f"""{saludo}
 
 Tu código de verificación para Huellitas es:
 
@@ -31,13 +31,16 @@ Tu código de verificación para Huellitas es:
 Este código expira en 15 minutos. Si no solicitaste este correo, puedes ignorarlo.
 
 - Equipo Huellitas
-""")
+""",
+    }
 
-    await aiosmtplib.send(
-        mensaje,
-        hostname="smtp.gmail.com",
-        port=587,
-        start_tls=True,
-        username=GMAIL_USER,
-        password=GMAIL_APP_PASSWORD,
-    )
+    headers = {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json",
+    }
+
+    response = requests.post(BREVO_URL, json=payload, headers=headers, timeout=10)
+
+    if response.status_code >= 400:
+        raise RuntimeError(f"Error al enviar correo con Brevo: {response.status_code} - {response.text}")

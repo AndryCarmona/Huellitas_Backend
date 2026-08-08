@@ -6,8 +6,10 @@ from .repository import UsuarioRepository
 from .schemas import UsuarioCreate, EditarPerfilRequest
 from app.core.database import supabase
 from app.core.email_service import generar_codigo_verificacion, enviar_correo_verificacion
+import os
 
 CODIGO_VALIDEZ_MINUTOS = 15
+EXIGIR_CORREO_CONFIRMADO = os.getenv("EXIGIR_CORREO_CONFIRMADO", "true").lower() == "true"  # Para mantener el funcionamiento del build 2 y 3 sin importar el código de verificación
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 BUCKET_NAME = "usuarios-completar-perfil"
@@ -32,9 +34,10 @@ class UsuarioService:
         if existing_usuario:
             raise ValueError("El correo ya está registrado")
 
-        # --- NUEVO: exigir correo confirmado antes de crear la cuenta ---
         verificacion = self.repository.obtener_verificacion(usuario_data.correo)
-        if not verificacion or not verificacion["confirmado"]:
+        correo_confirmado = bool(verificacion and verificacion.get("confirmado"))
+
+        if EXIGIR_CORREO_CONFIRMADO and not correo_confirmado:
             raise ValueError("Debes confirmar tu correo antes de registrarte")
 
         existing_username = self.repository.obtener_por_nombre_usuario(usuario_data.nombre_usuario)
@@ -58,17 +61,17 @@ class UsuarioService:
             "identificacion_frontal": usuario_data.identificacion_frontal,
             "identificacion_trasera": usuario_data.identificacion_trasera,
             "verificado": False,
-            "correo_confirmado": True,  # NUEVO
+            "correo_confirmado": correo_confirmado,
             "rol_usuario": "usuario",
         }
 
         nuevo_usuario = self.repository.crear_usuario(payload)
 
-        # --- NUEVO: limpiar la fila temporal, ya no se necesita ---
-        self.repository.eliminar_verificacion(usuario_data.correo)
+        if correo_confirmado:
+            self.repository.eliminar_verificacion(usuario_data.correo)
 
         return nuevo_usuario
-
+    
     def iniciar_sesion(self, identificador: str, password: str):
         if "@" in identificador:
             usuario = self.repository.obtener_correo(identificador)

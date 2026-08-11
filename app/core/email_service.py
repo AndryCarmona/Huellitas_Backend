@@ -41,8 +41,8 @@ Este código expira en 15 minutos. Si no solicitaste este correo, puedes ignorar
             <td style="background-color:#eaf5eb; padding:28px 24px; text-align:center;">
               <img src="https://ottfdxexkhtnvssbvwkh.supabase.co/storage/v1/object/public/assets-publicos/logo-huellitas.png"
                    alt="Huellitas"
-                   width="64"
-                   height="64"
+                   width="96"
+                   height="96"
                    style="border-radius:12px; display:block; margin:0 auto 10px auto;" />
             </td>
           </tr>

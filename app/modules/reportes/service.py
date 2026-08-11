@@ -106,47 +106,14 @@ def crear_reporte(data: ReporteCreate, forzar_creacion: bool = False):
     )
 
     _verificar_insignias_reportes(data.usuario_id_fk)
+    _verificar_insignias_reportes(data.usuario_id_fk)
+    _notificar_reporte_cercano(reporte_creado, data)
 
     return {
         "posible_duplicado": False,
         "candidatos": None,
         "reporte": reporte_creado,
     }
-
-def _notificar_reporte_cercano(reporte_creado: dict, data: ReporteCreate):
-    try:
-        usuarios = usuario_repo.obtener_usuarios_con_ubicacion_reciente(
-            minutos=UBICACION_MAX_ANTIGUEDAD_MIN
-        )
-
-        notificaciones = []
-        for u in usuarios:
-            if u["usuario_id_pk"] == data.usuario_id_fk:
-                continue
-
-            dist = distancia_km(
-                data.latitud, data.longitud,
-                u["latitud_actual"], u["longitud_actual"],
-            )
-            if dist <= RADIO_KM_REPORTE_CERCANO:
-                notificaciones.append({
-                    "usuario_id": u["usuario_id_pk"],
-                    "tipo": "reporte_cercano",
-                    "titulo": "Reporte cerca de ti",
-                    "mensaje": f"Hay un reporte de animal extraviado a menos de {RADIO_KM_REPORTE_CERCANO} km de tu ubicación.",
-                    "data": {
-                        "reporte_id": reporte_creado["reporte_id"],
-                        "latitud": data.latitud,
-                        "longitud": data.longitud,
-                    },
-                })
-
-        notificacion_repo.crear_notificaciones(notificaciones)
-    except Exception as e:
-        # No queremos que una falla al notificar tumbe la creación del reporte
-        print(f"No se pudieron crear notificaciones de reporte cercano: {e}")
-
-
 
 def _combinar_candidatos(candidatos_texto: list[dict], candidatos_imagen: list[dict]) -> list[dict]:
     """Une los candidatos de ambas búsquedas por reporte_id. Si un mismo
@@ -331,3 +298,37 @@ def _verificar_insignia_rescate(usuario_id: int):
 def tomar_reporte(reporte_id: int, usuario_id: int):
     """Asigna al usuario actual como responsable del rescate."""
     return reporte_repo.tomar_reporte(reporte_id, usuario_id)
+
+# --- Notificaciones --
+def _notificar_reporte_cercano(reporte_creado: dict, data: ReporteCreate):
+    try:
+        usuarios = usuario_repo.obtener_usuarios_con_ubicacion_reciente(
+            minutos=UBICACION_MAX_ANTIGUEDAD_MIN
+        )
+
+        notificaciones = []
+        for u in usuarios:
+            if u["usuario_id_pk"] == data.usuario_id_fk:
+                continue
+
+            dist = distancia_km(
+                data.latitud, data.longitud,
+                u["latitud_actual"], u["longitud_actual"],
+            )
+            if dist <= RADIO_KM_REPORTE_CERCANO:
+                notificaciones.append({
+                    "usuario_id": u["usuario_id_pk"],
+                    "tipo": "reporte_cercano",
+                    "titulo": "Reporte cerca de ti",
+                    "mensaje": f"Hay un reporte de animal extraviado a menos de {RADIO_KM_REPORTE_CERCANO} km de tu ubicación.",
+                    "data": {
+                        "reporte_id": reporte_creado["reporte_id"],
+                        "latitud": data.latitud,
+                        "longitud": data.longitud,
+                    },
+                })
+
+        notificacion_repo.crear_notificaciones(notificaciones)
+    except Exception as e:
+        # No queremos que una falla al notificar tumbe la creación del reporte
+        print(f"No se pudieron crear notificaciones de reporte cercano: {e}")

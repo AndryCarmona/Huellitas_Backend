@@ -38,9 +38,12 @@ Este código expira en 15 minutos. Si no solicitaste este correo, puedes ignorar
       <td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:420px; background-color:#ffffff; border-radius:16px; overflow:hidden;">
           <tr>
-            <td style="background-color:#2e7d32; padding:28px 24px; text-align:center;">
-              <span style="font-size:28px;">🐾</span>
-              <div style="color:#ffffff; font-size:20px; font-weight:bold; margin-top:6px;">Huellitas</div>
+            <td style="background-color:#eaf5eb; padding:28px 24px; text-align:center;">
+              <img src="https://ottfdxexkhtnvssbvwkh.supabase.co/storage/v1/object/public/assets-publicos/logo-huellitas.png"
+                   alt="Huellitas"
+                   width="64"
+                   height="64"
+                   style="border-radius:12px; display:block; margin:0 auto 10px auto;" />
             </td>
           </tr>
           <tr>
@@ -62,7 +65,7 @@ Este código expira en 15 minutos. Si no solicitaste este correo, puedes ignorar
           </tr>
           <tr>
             <td style="background-color:#f7f7f7; padding:16px 28px; text-align:center;">
-              <span style="font-size:12px; color:#999999;">Equipo Huellitas · Cuidando juntos a nuestras mascotas</span>
+              <span style="font-size:12px; color:#999999;">Equipo Huellitas · Acción real por vidas reales.</span>
             </td>
           </tr>
         </table>

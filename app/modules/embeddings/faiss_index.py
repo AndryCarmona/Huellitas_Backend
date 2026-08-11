@@ -7,7 +7,7 @@ from app.core.database import supabase
 
 DIMENSION = 384
 SCORE_MINIMO = 0.85
-DISTANCIA_MAXIMA_KM = 0.75  # ~750 metros
+DISTANCIA_MAXIMA_KM = 0.75
 DIAS_MAX_ANTIGUEDAD = 30
 FASE_CONCLUIDO = 3
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse, SolicitarCodigoRequest, ConfirmarCodigoRequest
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse, SolicitarCodigoRequest, ConfirmarCodigoRequest, ActualizarUbicacionRequest
 from .service import UsuarioService
 from fastapi import Depends, Form, File, UploadFile
 from app.core.security import get_current_user
@@ -175,3 +175,20 @@ def confirmar_codigo(datos: ConfirmarCodigoRequest):
         return service.confirmar_codigo_correo(datos.correo, datos.codigo)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.patch("/ubicacion", response_model=UsuarioResponse)
+def actualizar_ubicacion(
+    datos: ActualizarUbicacionRequest,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.actualizar_ubicacion(
+            usuario_actual["usuario_id_pk"],
+            datos.latitud,
+            datos.longitud,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar ubicación: {str(e)}")

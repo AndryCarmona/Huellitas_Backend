@@ -83,3 +83,7 @@ class SolicitarCodigoRequest(BaseModel):
 class ConfirmarCodigoRequest(BaseModel):
     correo: EmailStr
     codigo: str
+
+class ActualizarUbicacionRequest(BaseModel):
+    latitud: float
+    longitud: float

@@ -223,3 +223,15 @@ class UsuarioService:
         self.repository.confirmar_verificacion(correo)
 
         return {"mensaje": "Correo confirmado correctamente"}
+
+    def actualizar_ubicacion(self, usuario_id: int, latitud: float, longitud: float):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        data = {
+            "latitud_actual": latitud,
+            "longitud_actual": longitud,
+            "ubicacion_actualizada_en": datetime.now(timezone.utc).isoformat(),
+        }
+        return self.repository.actualizar_perfil(usuario_id, data)

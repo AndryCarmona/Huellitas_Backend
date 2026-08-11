@@ -1,4 +1,5 @@
 from app.core.database import supabase
+from app.core.geo import distancia_km
 from .schemas import ReporteCreate
 from .repository import ReporteRepository
 from app.modules.insignias.repository import InsigniaRepository  
@@ -6,6 +7,8 @@ from app.modules.embeddings.huggingface_client import generar_embedding_texto
 from app.modules.embeddings.roboflow_client import generar_embedding_imagen
 from app.modules.embeddings.faiss_index import faiss_service
 from app.modules.embeddings.faiss_index_imagen import faiss_imagen_service
+from app.modules.usuarios.repository import UsuarioRepository
+from app.modules.notificaciones.repository import NotificacionRepository
 
 import uuid
 
@@ -28,6 +31,12 @@ UMBRAL_NIVEL = {
 }
 
 TIPO_ANIMAL_LABELS = {1: "perro", 2: "gato"}
+
+usuario_repo = UsuarioRepository()
+notificacion_repo = NotificacionRepository()
+
+RADIO_KM_REPORTE_CERCANO = 2
+UBICACION_MAX_ANTIGUEDAD_MIN = 60
 
 def _construir_texto_embedding(data: ReporteCreate) -> str:
     """El embedding se genera únicamente de la descripción libre.
@@ -103,6 +112,41 @@ def crear_reporte(data: ReporteCreate, forzar_creacion: bool = False):
         "candidatos": None,
         "reporte": reporte_creado,
     }
+
+def _notificar_reporte_cercano(reporte_creado: dict, data: ReporteCreate):
+    try:
+        usuarios = usuario_repo.obtener_usuarios_con_ubicacion_reciente(
+            minutos=UBICACION_MAX_ANTIGUEDAD_MIN
+        )
+
+        notificaciones = []
+        for u in usuarios:
+            if u["usuario_id_pk"] == data.usuario_id_fk:
+                continue
+
+            dist = distancia_km(
+                data.latitud, data.longitud,
+                u["latitud_actual"], u["longitud_actual"],
+            )
+            if dist <= RADIO_KM_REPORTE_CERCANO:
+                notificaciones.append({
+                    "usuario_id": u["usuario_id_pk"],
+                    "tipo": "reporte_cercano",
+                    "titulo": "Reporte cerca de ti",
+                    "mensaje": f"Hay un reporte de animal extraviado a menos de {RADIO_KM_REPORTE_CERCANO} km de tu ubicación.",
+                    "data": {
+                        "reporte_id": reporte_creado["reporte_id"],
+                        "latitud": data.latitud,
+                        "longitud": data.longitud,
+                    },
+                })
+
+        notificacion_repo.crear_notificaciones(notificaciones)
+    except Exception as e:
+        # No queremos que una falla al notificar tumbe la creación del reporte
+        print(f"No se pudieron crear notificaciones de reporte cercano: {e}")
+
+
 
 def _combinar_candidatos(candidatos_texto: list[dict], candidatos_imagen: list[dict]) -> list[dict]:
     """Une los candidatos de ambas búsquedas por reporte_id. Si un mismo

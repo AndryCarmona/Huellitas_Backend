@@ -46,13 +46,13 @@ class UsuarioRepository:
         supabase.table("verificacion_correo").delete().eq("correo", correo).execute()
 
 # --- ubicación del usuario ---
-def obtener_usuarios_con_ubicacion_reciente(self, minutos: int = 60):
-    limite = (datetime.now(timezone.utc) - timedelta(minutes=minutos)).isoformat()
-    result = (
-        supabase.table("usuario")
-        .select("usuario_id_pk, latitud_actual, longitud_actual")
-        .not_.is_("latitud_actual", "null")
-        .gte("ubicacion_actualizada_en", limite)
-        .execute()
-    )
-    return result.data
+    def obtener_usuarios_con_ubicacion_reciente(self, minutos: int = 60):
+        limite = (datetime.now(timezone.utc) - timedelta(minutes=minutos)).isoformat()
+        result = (
+            supabase.table("usuario")
+            .select("usuario_id_pk, latitud_actual, longitud_actual")
+            .not_.is_("latitud_actual", "null")
+            .gte("ubicacion_actualizada_en", limite)
+            .execute()
+        )
+        return result.data

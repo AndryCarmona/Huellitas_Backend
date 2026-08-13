@@ -1,4 +1,7 @@
+from unittest import result
+
 from app.core.database import supabase
+from datetime import datetime
 
 # ============ PUBLICACIONES ============
 
@@ -189,6 +192,17 @@ class GrupoRepository:
             .execute()
         )
         return result.data[0] if result.data else None
+    
+    def eliminar_publicaciones_por_grupo(self, grupo_id: int):
+            result = (supabase.table("publicacion").update({
+                    "estado": "eliminada",
+                    "fecha_eliminacion": datetime.utcnow().isoformat(),
+                })
+                .eq("grupo_id_fk", grupo_id)
+                .neq("estado", "eliminada")
+                .execute()
+            )
+            return result.data
 
     def obtener_mis_grupos(self, usuario_id: int):
         membresias = (

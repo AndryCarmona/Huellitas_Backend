@@ -73,7 +73,6 @@ class PublicacionService:
             raise ValueError("Publicación no encontrada")
         return self._enriquecer_publicacion(pub, usuario_id)
 
-    # ---------- MODIFICADO: ahora acepta imagen ----------
     def crear_publicacion(self, data: CrearPublicacionRequest, usuario_id: int,
                           imagen: UploadFile = None):
         payload = {
@@ -106,7 +105,6 @@ class PublicacionService:
 
         return self._enriquecer_publicacion(pub, usuario_id)
 
-    # ---------- MODIFICADO: ahora acepta nueva imagen ----------
     def actualizar_publicacion(self, publicacion_id: int, data: ActualizarPublicacionRequest,
                                usuario_id: int, imagen: UploadFile = None):
         pub = self.repository.obtener_por_id(publicacion_id)
@@ -118,7 +116,6 @@ class PublicacionService:
         updates = {k: v for k, v in data.dict().items() if v is not None}
         updates["fecha_actualizacion"] = datetime.utcnow().isoformat()
 
-        # Si viene nueva imagen, subirla
         if imagen is not None and imagen.filename:
             url = self._subir_imagen_publicacion(usuario_id, publicacion_id, imagen)
             updates["imagen_url"] = url
@@ -128,8 +125,6 @@ class PublicacionService:
 
         actualizada = self.repository.actualizar_publicacion(publicacion_id, updates)
         return self._enriquecer_publicacion(actualizada, usuario_id)
-
-    # ... eliminar_publicacion, toggle_me_gusta igual que antes ...
 
         updates = {k: v for k, v in data.dict().items() if v is not None}
         if not updates:
@@ -504,6 +499,7 @@ class GrupoService:
         )
 
         es_creador = grupo["creador_usuario"] == usuario_id
+
         es_administrador = (
             membresia is not None
             and membresia["estado"] == "activa"
@@ -515,12 +511,16 @@ class GrupoService:
                 "No tienes permiso para eliminar este grupo"
             )
 
+        # Eliminar lógicamente todas las publicaciones del grupo
+        self.repository.eliminar_publicaciones_por_grupo(grupo_id)
+
+        # Eliminar el grupo
         eliminado = self.repository.eliminar_grupo(grupo_id)
 
         if not eliminado:
             raise ValueError("No se pudo eliminar el grupo")
 
         return {
-            "mensaje": "Grupo eliminado correctamente",
+            "mensaje": "Grupo y publicaciones eliminados correctamente",
             "grupo_id": grupo_id,
         }

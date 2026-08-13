@@ -156,3 +156,4 @@ def obtener_perfil_publico(
         return service.obtener_perfil_publico(usuario_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    return {"access_token": access_token, "token_type": "bearer"}

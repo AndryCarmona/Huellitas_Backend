@@ -5,7 +5,11 @@ from passlib.context import CryptContext
 from .repository import UsuarioRepository
 from .schemas import UsuarioCreate, EditarPerfilRequest
 from app.core.database import supabase
+from app.core.email_service import generar_codigo_verificacion, enviar_correo_verificacion
+import os
 
+CODIGO_VALIDEZ_MINUTOS = 15
+EXIGIR_CORREO_CONFIRMADO = os.getenv("EXIGIR_CORREO_CONFIRMADO", "true").lower() == "true"  # Para mantener el funcionamiento del build 2 y 3 sin importar el código de verificación
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 BUCKET_NAME = "usuarios-completar-perfil"
@@ -30,6 +34,12 @@ class UsuarioService:
         if existing_usuario:
             raise ValueError("El correo ya está registrado")
 
+        verificacion = self.repository.obtener_verificacion(usuario_data.correo)
+        correo_confirmado = bool(verificacion and verificacion.get("confirmado"))
+
+        if EXIGIR_CORREO_CONFIRMADO and not correo_confirmado:
+            raise ValueError("Debes confirmar tu correo antes de registrarte")
+
         existing_username = self.repository.obtener_por_nombre_usuario(usuario_data.nombre_usuario)
         if existing_username:
             raise ValueError("El nombre de usuario ya está en uso")
@@ -51,11 +61,17 @@ class UsuarioService:
             "identificacion_frontal": usuario_data.identificacion_frontal,
             "identificacion_trasera": usuario_data.identificacion_trasera,
             "verificado": False,
+            "correo_confirmado": correo_confirmado,
             "rol_usuario": "usuario",
         }
 
-        return self.repository.crear_usuario(payload)
+        nuevo_usuario = self.repository.crear_usuario(payload)
 
+        if correo_confirmado:
+            self.repository.eliminar_verificacion(usuario_data.correo)
+
+        return nuevo_usuario
+    
     def iniciar_sesion(self, identificador: str, password: str):
         if "@" in identificador:
             usuario = self.repository.obtener_correo(identificador)
@@ -172,3 +188,50 @@ class UsuarioService:
             "foto_perfil": usuario.get("foto_perfil"),
             "verificado": usuario["verificado"],
         }
+
+    # --- Verificación de correo (pre-registro) ---
+
+    async def solicitar_codigo_correo(self, correo: str):
+        if self.repository.obtener_correo(correo):
+            raise ValueError("El correo ya está registrado")
+
+        codigo = generar_codigo_verificacion()
+        expira = datetime.now(timezone.utc) + timedelta(minutes=CODIGO_VALIDEZ_MINUTOS)
+
+        self.repository.guardar_codigo_verificacion(correo, codigo, expira.isoformat())
+
+        await enviar_correo_verificacion(destinatario=correo, codigo=codigo)
+
+        return {"mensaje": "Código de verificación enviado"}
+
+    def confirmar_codigo_correo(self, correo: str, codigo_ingresado: str):
+        registro = self.repository.obtener_verificacion(correo)
+
+        if not registro:
+            raise ValueError("No hay una verificación pendiente para este correo")
+
+        if registro["confirmado"]:
+            raise ValueError("Este correo ya fue confirmado")
+
+        expira_dt = datetime.fromisoformat(registro["expira_en"])
+        if datetime.now(timezone.utc) > expira_dt:
+            raise ValueError("El código ha expirado, solicita uno nuevo")
+
+        if codigo_ingresado != registro["codigo"]:
+            raise ValueError("Código incorrecto")
+
+        self.repository.confirmar_verificacion(correo)
+
+        return {"mensaje": "Correo confirmado correctamente"}
+
+    def actualizar_ubicacion(self, usuario_id: int, latitud: float, longitud: float):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+
+        data = {
+            "latitud_actual": latitud,
+            "longitud_actual": longitud,
+            "ubicacion_actualizada_en": datetime.now(timezone.utc).isoformat(),
+        }
+        return self.repository.actualizar_perfil(usuario_id, data)

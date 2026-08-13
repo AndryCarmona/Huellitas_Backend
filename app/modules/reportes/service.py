@@ -1,7 +1,15 @@
 from app.core.database import supabase
+from app.core.geo import distancia_km
 from .schemas import ReporteCreate
 from .repository import ReporteRepository
 from app.modules.insignias.repository import InsigniaRepository  
+from app.modules.embeddings.huggingface_client import generar_embedding_texto
+from app.modules.embeddings.roboflow_client import generar_embedding_imagen
+from app.modules.embeddings.faiss_index import faiss_service
+from app.modules.embeddings.faiss_index_imagen import faiss_imagen_service
+from app.modules.usuarios.repository import UsuarioRepository
+from app.modules.notificaciones.repository import NotificacionRepository
+
 import uuid
 
 BUCKET_NAME="evidencia_reporte"
@@ -22,16 +30,132 @@ UMBRAL_NIVEL = {
     7: 100  
 }
 
-def crear_reporte(data: ReporteCreate):
+TIPO_ANIMAL_LABELS = {1: "perro", 2: "gato"}
+
+usuario_repo = UsuarioRepository()
+notificacion_repo = NotificacionRepository()
+
+RADIO_KM_REPORTE_CERCANO = 2
+UBICACION_MAX_ANTIGUEDAD_MIN = 60
+
+def _construir_texto_embedding(data: ReporteCreate) -> str:
+    """El embedding se genera únicamente de la descripción libre.
+    Tipo de animal ya se filtra de forma dura por separado; raza y
+    tamaño se excluyen porque distorsionan la similitud semántica
+    (dos reportes del mismo animal casi nunca coinciden en la raza
+    percibida por el usuario)."""
+    return data.descripcion
+
+def crear_reporte(data: ReporteCreate, forzar_creacion: bool = False):
+    texto_embedding = _construir_texto_embedding(data)
+    embedding_texto = generar_embedding_texto(texto_embedding)
+    embedding_imagen = generar_embedding_imagen(data.evidencia)
+
+    if not forzar_creacion:
+        candidatos_texto = faiss_service.buscar_similares(
+            embedding=embedding_texto,
+            latitud=data.latitud,
+            longitud=data.longitud,
+            tipo_animal=data.tipo_animal,
+        )
+        candidatos_imagen = faiss_imagen_service.buscar_similares(
+            embedding=embedding_imagen,
+            latitud=data.latitud,
+            longitud=data.longitud,
+            tipo_animal=data.tipo_animal,
+        )
+
+        candidatos_combinados = _combinar_candidatos(candidatos_texto, candidatos_imagen)
+
+        if candidatos_combinados:
+            detalles = _obtener_detalles_candidatos(
+                [c["reporte_id"] for c in candidatos_combinados]
+            )
+            for c in candidatos_combinados:
+                c["detalle"] = detalles.get(c["reporte_id"])
+
+            return {
+                "posible_duplicado": True,
+                "candidatos": candidatos_combinados,
+                "reporte": None,
+            }
+
     payload = data.dict()
     payload["fecha_reporte"] = "now()"
-    print("PAYLOAD A INSERTAR:", payload)
+    payload["embedding_texto"] = embedding_texto
+    payload["embedding_imagen"] = embedding_imagen
 
     response = supabase.table("reporte").insert(payload).execute()
-    
-    _verificar_insignias_reportes(data.usuario_id_fk)
+    reporte_creado = response.data[0]
 
-    return response.data
+    faiss_service.agregar(
+        reporte_id=reporte_creado["reporte_id"],
+        embedding=embedding_texto,
+        latitud=data.latitud,
+        longitud=data.longitud,
+        fecha_reporte=reporte_creado["fecha_reporte"],
+        tipo_animal=data.tipo_animal,
+    )
+    faiss_imagen_service.agregar(
+        reporte_id=reporte_creado["reporte_id"],
+        embedding=embedding_imagen,
+        latitud=data.latitud,
+        longitud=data.longitud,
+        fecha_reporte=reporte_creado["fecha_reporte"],
+        tipo_animal=data.tipo_animal,
+    )
+
+    _verificar_insignias_reportes(data.usuario_id_fk)
+    _verificar_insignias_reportes(data.usuario_id_fk)
+    _notificar_reporte_cercano(reporte_creado, data)
+
+    return {
+        "posible_duplicado": False,
+        "candidatos": None,
+        "reporte": reporte_creado,
+    }
+
+def _combinar_candidatos(candidatos_texto: list[dict], candidatos_imagen: list[dict]) -> list[dict]:
+    """Une los candidatos de ambas búsquedas por reporte_id. Si un mismo
+    reporte aparece en ambas listas, se queda con el score más alto y se
+    guardan ambos scores para referencia."""
+    combinados: dict[int, dict] = {}
+
+    for c in candidatos_texto:
+        combinados[c["reporte_id"]] = {
+            "reporte_id": c["reporte_id"],
+            "score_texto": c["score"],
+            "score_imagen": None,
+            "distancia_km": c["distancia_km"],
+        }
+
+    for c in candidatos_imagen:
+        if c["reporte_id"] in combinados:
+            combinados[c["reporte_id"]]["score_imagen"] = c["score"]
+        else:
+            combinados[c["reporte_id"]] = {
+                "reporte_id": c["reporte_id"],
+                "score_texto": None,
+                "score_imagen": c["score"],
+                "distancia_km": c["distancia_km"],
+            }
+
+    resultado = list(combinados.values())
+    resultado.sort(
+        key=lambda c: max(c["score_texto"] or 0, c["score_imagen"] or 0),
+        reverse=True,
+    )
+    return resultado
+
+def _obtener_detalles_candidatos(reporte_ids: list[int]) -> dict[int, dict]:
+    response = (
+        supabase.table("reporte")
+        .select("reporte_id, descripcion, evidencia, tipo_animal, tamano")
+        .in_("reporte_id", reporte_ids)
+        .execute()
+    )
+    return {r["reporte_id"]: r for r in response.data}
+
 
 def subir_evidencia(file_bytes: bytes, filename: str) -> str:
     ext = filename.split(".")[-1]
@@ -174,3 +298,37 @@ def _verificar_insignia_rescate(usuario_id: int):
 def tomar_reporte(reporte_id: int, usuario_id: int):
     """Asigna al usuario actual como responsable del rescate."""
     return reporte_repo.tomar_reporte(reporte_id, usuario_id)
+
+# --- Notificaciones --
+def _notificar_reporte_cercano(reporte_creado: dict, data: ReporteCreate):
+    try:
+        usuarios = usuario_repo.obtener_usuarios_con_ubicacion_reciente(
+            minutos=UBICACION_MAX_ANTIGUEDAD_MIN
+        )
+
+        notificaciones = []
+        for u in usuarios:
+            if u["usuario_id_pk"] == data.usuario_id_fk:
+                continue
+
+            dist = distancia_km(
+                data.latitud, data.longitud,
+                u["latitud_actual"], u["longitud_actual"],
+            )
+            if dist <= RADIO_KM_REPORTE_CERCANO:
+                notificaciones.append({
+                    "usuario_id": u["usuario_id_pk"],
+                    "tipo": "reporte_cercano",
+                    "titulo": "Reporte cerca de ti",
+                    "mensaje": f"Hay un reporte de animal extraviado a menos de {RADIO_KM_REPORTE_CERCANO} km de tu ubicación.",
+                    "data": {
+                        "reporte_id": reporte_creado["reporte_id"],
+                        "latitud": data.latitud,
+                        "longitud": data.longitud,
+                    },
+                })
+
+        notificacion_repo.crear_notificaciones(notificaciones)
+    except Exception as e:
+        # No queremos que una falla al notificar tumbe la creación del reporte
+        print(f"No se pudieron crear notificaciones de reporte cercano: {e}")

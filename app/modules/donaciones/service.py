@@ -82,3 +82,7 @@ class DonacionService:
             if total_donaciones >= umbral:
                 insignia_repo.otorgar_insignia(usuario_id, insignia_id)
                 print(f"¡Usuario {usuario_id} obtuvo la insignia: {insignia['nombre']}!")
+
+    def obtener_donaciones_usuario(self, usuario_id: int):
+        """Obtiene el historial de donaciones de un usuario."""
+        return self.repository.obtener_donaciones_por_usuario(usuario_id)

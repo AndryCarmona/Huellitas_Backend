@@ -76,3 +76,14 @@ class UsuarioPublicoResponse(BaseModel):
     num_telefono: str
     foto_perfil: str | None = None
     verificado: bool
+
+class SolicitarCodigoRequest(BaseModel):
+    correo: EmailStr
+
+class ConfirmarCodigoRequest(BaseModel):
+    correo: EmailStr
+    codigo: str
+
+class ActualizarUbicacionRequest(BaseModel):
+    latitud: float
+    longitud: float

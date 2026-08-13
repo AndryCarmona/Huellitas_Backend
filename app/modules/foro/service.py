@@ -491,3 +491,36 @@ class GrupoService:
                 "fecha_ingreso": m.get("fecha_ingreso"),
             })
         return resultado
+
+    def eliminar_grupo(self, grupo_id: int, usuario_id: int):
+        grupo = self.repository.obtener_por_id(grupo_id)
+
+        if not grupo:
+            raise ValueError("Grupo no encontrado")
+
+        membresia = self.repository.obtener_miembro(
+            grupo_id,
+            usuario_id,
+        )
+
+        es_creador = grupo["creador_usuario"] == usuario_id
+        es_administrador = (
+            membresia is not None
+            and membresia["estado"] == "activa"
+            and membresia["rol"] == "administrador"
+        )
+
+        if not es_creador and not es_administrador:
+            raise PermissionError(
+                "No tienes permiso para eliminar este grupo"
+            )
+
+        eliminado = self.repository.eliminar_grupo(grupo_id)
+
+        if not eliminado:
+            raise ValueError("No se pudo eliminar el grupo")
+
+        return {
+            "mensaje": "Grupo eliminado correctamente",
+            "grupo_id": grupo_id,
+        }

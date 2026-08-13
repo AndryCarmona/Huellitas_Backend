@@ -31,3 +31,13 @@ class DonacionRepository:
         """Cuenta el total de donaciones completadas de un usuario."""
         response = (supabase.table("donaciones").select("id", count="exact").eq("usuario_id", usuario_id).eq("estado", "completada").execute())
         return response.count if response.count else 0
+    def obtener_donaciones_por_usuario(self, usuario_id: int) -> List[Dict[str, Any]]:
+        """Obtiene todas las donaciones de un usuario, ordenadas por fecha (más reciente primero)."""
+        response = (
+            supabase.table("donaciones")
+            .select("*")
+            .eq("usuario_id", usuario_id)
+            .order("fecha_donacion", desc=True)
+            .execute()
+        )
+        return response.data

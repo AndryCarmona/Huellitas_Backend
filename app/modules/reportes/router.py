@@ -1,17 +1,21 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
-from .schemas import ReporteCreate, UploadResponse
-from .service import crear_reporte, subir_evidencia, listar_reportes
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
+from .schemas import ReporteCreate, UploadResponse, ActualizarEstadoRequest, RespuestaCrearReporte
+from .service import (
+    crear_reporte,
+    subir_evidencia,
+    listar_reportes,
+    obtener_estado_reporte,
+    actualizar_estado_reporte,
+    tomar_reporte,
+)
 from app.core.security import get_current_user
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from .schemas import ReporteCreate, UploadResponse, ActualizarEstadoRequest
-from .service import crear_reporte, subir_evidencia, listar_reportes, obtener_estado_reporte, actualizar_estado_reporte, tomar_reporte
 
 router = APIRouter(prefix="/reportes", tags=["Reportes"])
 
-@router.post("")
-def crear(data: ReporteCreate):
+@router.post("", response_model=RespuestaCrearReporte)
+def crear(data: ReporteCreate, forzar_creacion: bool = False):
     try:
-        return crear_reporte(data)
+        return crear_reporte(data, forzar_creacion=forzar_creacion)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

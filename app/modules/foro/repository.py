@@ -169,3 +169,47 @@ class GrupoRepository:
     def actualizar_grupo(self, grupo_id: int, data: dict):
         result = supabase.table("grupo").update(data).eq("grupo_id", grupo_id).execute()
         return result.data[0] if result.data else None
+
+    def obtener_por_id(self, grupo_id: int):
+        result = (
+            supabase.table("grupo")
+            .select("*")
+            .eq("grupo_id", grupo_id)
+            .eq("estado", "activo")
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    def eliminar_grupo(self, grupo_id: int):
+        result = (
+            supabase.table("grupo")
+            .update({"estado": "eliminado"})
+            .eq("grupo_id", grupo_id)
+            .eq("estado", "activo")
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    def obtener_mis_grupos(self, usuario_id: int):
+        membresias = (
+            supabase.table("miembros_grupos")
+            .select("grupo_id_fk")
+            .eq("usuario_id_fk", usuario_id)
+            .eq("estado", "activa")
+            .execute()
+        )
+
+        if not membresias.data:
+            return []
+
+        ids = [m["grupo_id_fk"] for m in membresias.data]
+
+        result = (
+            supabase.table("grupo")
+            .select("*")
+            .in_("grupo_id", ids)
+            .eq("estado", "activo")
+            .execute()
+        )
+
+        return result.data or []

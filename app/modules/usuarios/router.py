@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse, SolicitarCodigoRequest, ConfirmarCodigoRequest, ActualizarUbicacionRequest
 from .service import UsuarioService
 from fastapi import Depends, Form, File, UploadFile
 from app.core.security import get_current_user
@@ -157,3 +157,39 @@ def obtener_perfil_publico(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/enviar-codigo")
+async def enviar_codigo(datos: SolicitarCodigoRequest):
+    service = UsuarioService()
+    try:
+        return await service.solicitar_codigo_correo(datos.correo)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al enviar código: {str(e)}")
+
+
+@router.post("/confirmar-codigo")
+def confirmar_codigo(datos: ConfirmarCodigoRequest):
+    service = UsuarioService()
+    try:
+        return service.confirmar_codigo_correo(datos.correo, datos.codigo)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.patch("/ubicacion", response_model=UsuarioResponse)
+def actualizar_ubicacion(
+    datos: ActualizarUbicacionRequest,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.actualizar_ubicacion(
+            usuario_actual["usuario_id_pk"],
+            datos.latitud,
+            datos.longitud,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al actualizar ubicación: {str(e)}")

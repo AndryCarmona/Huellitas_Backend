@@ -547,7 +547,7 @@ class GrupoService:
             print(f"No se pudo crear notificación de aprobar_miembro: {e}")
 
     #Notificación para administradores de nuevos miembros que se unen o quieren unirse
-    def _notificar_nuevo_miembro(self, grupo_id: int, usuario_id_solicitante: int):
+    def _notificar_nuevo_miembro(self, grupo_id: int, usuario_id_solicitante: int, es_solicitud: bool):
         try:
             grupo = self.repository.obtener_por_id(grupo_id)
             nombre_grupo = grupo["nombre"] if grupo else "tu grupo"
@@ -557,12 +557,19 @@ class GrupoService:
             ).execute()
             nombre_solicitante = usuario.data[0]["nombre"] if usuario.data else "Alguien"
 
+            if es_solicitud:
+                titulo = "Solicitud de ingreso"
+                mensaje = f"{nombre_solicitante} quiere unirse a {nombre_grupo}."
+            else:
+                titulo = "Nuevo miembro"
+                mensaje = f"{nombre_solicitante} se unió a {nombre_grupo}."
+
             admins = self.repository.obtener_administradores(grupo_id)
             notificaciones = [{
                 "usuario_id": a["usuario_id_fk"],
                 "tipo": "nuevo_miembro",
-                "titulo": "Solicitud de ingreso",
-                "mensaje": f"{nombre_solicitante} quiere unirse a {nombre_grupo}.",
+                "titulo": titulo,
+                "mensaje": mensaje,
                 "data": {
                     "grupo_id": grupo_id,
                     "usuario_id": usuario_id_solicitante,

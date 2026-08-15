@@ -227,3 +227,14 @@ class GrupoRepository:
         )
 
         return result.data or []
+
+    def obtener_administradores(self, grupo_id: int):
+        result = (
+            supabase.table("miembros_grupos")
+            .select("usuario_id_fk")
+            .eq("grupo_id_fk", grupo_id)
+            .eq("estado", "activa")
+            .eq("rol", "administrador")
+            .execute()
+        )
+        return result.data or []

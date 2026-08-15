@@ -97,7 +97,7 @@ def main():
                     "usuario_id": uid,
                     "tipo": "reporte_cercano",
                     "titulo": "Reporte cerca de ti",
-                    "mensaje": f"Hay un reporte de animal extraviado a menos de {RADIO_KM} km de tu ubicacion.",
+                    "mensaje": f"Hay un reporte de animal a menos de {RADIO_KM} km de tu ubicacion.",
                     "data": {"reporte_id": rid, "latitud": lat_r, "longitud": lng_r},
                 })
 

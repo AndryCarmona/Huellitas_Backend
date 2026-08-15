@@ -108,6 +108,7 @@ def crear_reporte(data: ReporteCreate, forzar_creacion: bool = False):
     _verificar_insignias_reportes(data.usuario_id_fk)
     _verificar_insignias_reportes(data.usuario_id_fk)
     _notificar_reporte_cercano(reporte_creado, data)
+    _notificar_reporte_exitoso(reporte_creado, data.usuario_id_fk)
 
     return {
         "posible_duplicado": False,
@@ -320,7 +321,7 @@ def _notificar_reporte_cercano(reporte_creado: dict, data: ReporteCreate):
                     "usuario_id": u["usuario_id_pk"],
                     "tipo": "reporte_cercano",
                     "titulo": "Reporte cerca de ti",
-                    "mensaje": f"Hay un reporte de animal extraviado a menos de {RADIO_KM_REPORTE_CERCANO} km de tu ubicación.",
+                    "mensaje": f"Hay un reporte de animal a menos de {RADIO_KM_REPORTE_CERCANO} km de tu ubicación.",
                     "data": {
                         "reporte_id": reporte_creado["reporte_id"],
                         "latitud": data.latitud,
@@ -332,3 +333,15 @@ def _notificar_reporte_cercano(reporte_creado: dict, data: ReporteCreate):
     except Exception as e:
         # No queremos que una falla al notificar tumbe la creación del reporte
         print(f"No se pudieron crear notificaciones de reporte cercano: {e}")
+
+def _notificar_reporte_exitoso(reporte_creado: dict, usuario_id: int):
+    try:
+        notificacion_repo.crear_notificaciones([{
+            "usuario_id": usuario_id,
+            "tipo": "reporte_exitoso",
+            "titulo": "¡Reporte creado!",
+            "mensaje": "Tu reporte fue publicado exitosamente. Otros usuarios podrán verlo.",
+            "data": {"reporte_id": reporte_creado["reporte_id"]},
+        }])
+    except Exception as e:
+        print(f"No se pudo crear notificación de reporte exitoso: {e}")

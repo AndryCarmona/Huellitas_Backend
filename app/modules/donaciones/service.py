@@ -3,6 +3,9 @@ from app.core.database import supabase
 from .schemas import DonacionCreate
 from .repository import DonacionRepository
 from app.modules.insignias.repository import InsigniaRepository
+from app.modules.notificaciones.repository import NotificacionRepository
+
+notificacion_repo = NotificacionRepository()
 
 #Repos
 insignia_repo = InsigniaRepository()
@@ -57,6 +60,7 @@ class DonacionService:
         response = supabase.table("donaciones").insert(payload).execute()
         
         self._verificar_insignias_donaciones(data.usuarioId)
+        self._notificar_donacion(data.usuarioId, data.monto, organizacion["nombre"])
 
         return response.data
 
@@ -86,3 +90,15 @@ class DonacionService:
     def obtener_donaciones_usuario(self, usuario_id: int):
         """Obtiene el historial de donaciones de un usuario."""
         return self.repository.obtener_donaciones_por_usuario(usuario_id)
+
+    def _notificar_donacion(self, usuario_id: int, monto: float, organizacion_nombre: str):
+        try:
+            notificacion_repo.crear_notificaciones([{
+                "usuario_id": usuario_id,
+                "tipo": "donacion",
+                "titulo": "Gracias por tu donación",
+                "mensaje": f"Tu donación de ${monto:.2f} fue procesada exitosamente.",
+                "data": {"monto": monto, "organizacion": organizacion_nombre},
+            }])
+        except Exception as e:
+            print(f"No se pudo crear notificación de donación: {e}")

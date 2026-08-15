@@ -15,6 +15,7 @@ BUCKET_GRUPOS = "grupos"
 class PublicacionService:
     def __init__(self):
         self.repository = PublicacionRepository()
+        self.repository = ComentarioRepository()
 
     def _subir_imagen_publicacion(self, usuario_id: int, publicacion_id: int, archivo: UploadFile) -> str:
         contenido = archivo.file.read()
@@ -199,6 +200,11 @@ class ComentarioService:
         if data.comentario_padre_id is not None:
             payload["comentario_padre_id"] = data.comentario_padre_id
         c = self.repository.crear_comentario(payload)
+
+        publicacion = self.publicacion_repository.obtener_por_id(data.publicacion_id)
+        if publicacion:
+            self._notificar_comentario(publicacion, c, usuario_id)
+
         return self._enriquecer_comentario(c, usuario_id)
 
     def actualizar_comentario(self, comentario_id: int, contenido: str, usuario_id: int):
@@ -583,3 +589,28 @@ class GrupoService:
             notificacion_repo.crear_notificaciones(notificaciones)
         except Exception as e:
             print(f"No se pudo crear notificación de nuevo_miembro: {e}")
+
+    #Notificación de comentarios
+    def _notificar_comentario(self, publicacion: dict, comentario: dict, usuario_id_comentarista: int):
+        try:
+            usuario_autor_pub = publicacion["usuario_id"]
+            if usuario_autor_pub == usuario_id_comentarista:
+                return  # no te notificas si comentas tu propia publicación
+
+            usuario = supabase.table("usuario").select("nombre").eq(
+                "usuario_id_pk", usuario_id_comentarista
+            ).execute()
+            nombre_comentarista = usuario.data[0]["nombre"] if usuario.data else "Alguien"
+
+            notificacion_repo.crear_notificaciones([{
+                "usuario_id": usuario_autor_pub,
+                "tipo": "comentario",
+                "titulo": "Nuevo comentario",
+                "mensaje": f"{nombre_comentarista} comentó en tu publicación.",
+                "data": {
+                    "publicacion_id": publicacion["publicacion_id"],
+                    "usuario_id": usuario_id_comentarista,
+                },
+            }])
+        except Exception as e:
+            print(f"No se pudo crear notificación de comentario: {e}")

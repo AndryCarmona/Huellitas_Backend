@@ -405,6 +405,7 @@ class GrupoService:
             "rol": "miembro",
             "estado": "pendiente",
         })
+        self._notificar_nuevo_miembro(grupo_id, usuario_id)
         return self._enriquecer_grupo(g, usuario_id)
 
     def cancelar_solicitud(self, grupo_id: int, usuario_id: int):
@@ -543,3 +544,31 @@ class GrupoService:
             }])
         except Exception as e:
             print(f"No se pudo crear notificación de aprobar_miembro: {e}")
+
+    #Notificación para administradores de nuevos miembros que se unen o quieren unirse
+    def _notificar_nuevo_miembro(self, grupo_id: int, usuario_id_solicitante: int):
+        try:
+            grupo = self.repository.obtener_por_id(grupo_id)
+            nombre_grupo = grupo["nombre"] if grupo else "tu grupo"
+
+            usuario = supabase.table("usuario").select("nombre").eq(
+                "usuario_id_pk", usuario_id_solicitante
+            ).execute()
+            nombre_solicitante = usuario.data[0]["nombre"] if usuario.data else "Alguien"
+
+            admins = self.repository.obtener_administradores(grupo_id)
+            notificaciones = [{
+                "usuario_id": a["usuario_id_fk"],
+                "tipo": "nuevo_miembro",
+                "titulo": "Solicitud de ingreso",
+                "mensaje": f"{nombre_solicitante} quiere unirse a {nombre_grupo}.",
+                "data": {
+                    "grupo_id": grupo_id,
+                    "usuario_id": usuario_id_solicitante,
+                    "usuario_nombre": nombre_solicitante,
+                },
+            } for a in admins if a["usuario_id_fk"] != usuario_id_solicitante]
+
+            notificacion_repo.crear_notificaciones(notificaciones)
+        except Exception as e:
+            print(f"No se pudo crear notificación de nuevo_miembro: {e}")

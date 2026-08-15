@@ -388,6 +388,7 @@ class GrupoService:
             "estado": "activa",
             "fecha_ingreso": datetime.utcnow().isoformat(),
         })
+        self._notificar_nuevo_miembro(grupo_id, usuario_id)
         return self._enriquecer_grupo(g, usuario_id)
 
     def solicitar_ingreso(self, grupo_id: int, usuario_id: int):

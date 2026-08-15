@@ -15,7 +15,6 @@ BUCKET_GRUPOS = "grupos"
 class PublicacionService:
     def __init__(self):
         self.repository = PublicacionRepository()
-        self.repository = ComentarioRepository()
 
     def _subir_imagen_publicacion(self, usuario_id: int, publicacion_id: int, archivo: UploadFile) -> str:
         contenido = archivo.file.read()
@@ -168,6 +167,7 @@ class PublicacionService:
 class ComentarioService:
     def __init__(self):
         self.repository = ComentarioRepository()
+        self.publicacion_repository = PublicacionRepository()
 
     def _enriquecer_comentario(self, c: dict, usuario_id: int) -> dict:
         usuario = supabase.table("usuario").select(

@@ -345,3 +345,31 @@ def _notificar_reporte_exitoso(reporte_creado: dict, usuario_id: int):
         }])
     except Exception as e:
         print(f"No se pudo crear notificación de reporte exitoso: {e}")
+
+def _notificar_reporte_tomado(reporte_id: int, usuario_id_creador: int, usuario_id_rescatista: int):
+    if usuario_id_creador == usuario_id_rescatista:
+        return  # no te notificas a ti mismo si tomas tu propio reporte
+
+    try:
+        notificacion_repo.crear_notificaciones([{
+            "usuario_id": usuario_id_creador,
+            "tipo": "reporte_tomado",
+            "titulo": "¡Tu reporte fue tomado!",
+            "mensaje": "Un voluntario tomó el caso de tu reporte.",
+            "data": {"reporte_id": reporte_id},
+        }])
+    except Exception as e:
+        print(f"No se pudo crear notificación de reporte tomado: {e}")
+
+
+def tomar_reporte(reporte_id: int, usuario_id: int):
+    """Asigna al usuario actual como responsable del rescate."""
+    resultado = reporte_repo.tomar_reporte(reporte_id, usuario_id)
+
+    _notificar_reporte_tomado(
+        reporte_id,
+        usuario_id_creador=resultado["usuario_id_fk"],
+        usuario_id_rescatista=usuario_id,
+    )
+
+    return resultado

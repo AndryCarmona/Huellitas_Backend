@@ -116,14 +116,15 @@ class ReporteRepository:
         """Asigna al usuario actual como responsable del rescate, si nadie lo tiene ya."""
         response = (
             supabase.table("reporte")
-            .select("usuario_rescate_id")
+            .select("usuario_rescate_id, usuario_id_fk")
             .eq("reporte_id", reporte_id)
             .execute()
         )
         if not response.data:
             raise ValueError("Reporte no encontrado")
 
-        asignado_actual = response.data[0].get("usuario_rescate_id")
+        reporte = response.data[0]
+        asignado_actual = reporte.get("usuario_rescate_id")
 
         if asignado_actual is not None and asignado_actual != usuario_id:
             usuario_response = (
@@ -139,7 +140,7 @@ class ReporteRepository:
             "usuario_rescate_id": usuario_id
         }).eq("reporte_id", reporte_id).execute()
 
-        return True
+        return {"usuario_id_fk": reporte["usuario_id_fk"]}
 
     def validar_usuario_asignado(self, reporte_id: int, usuario_id: int):
         """Verifica que el usuario que intenta actualizar el estado sea quien tomó el reporte."""

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse, SolicitarCodigoRequest, ConfirmarCodigoRequest, ActualizarUbicacionRequest
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse, SolicitarCodigoRequest, ConfirmarCodigoRequest, ActualizarUbicacionRequest, OrganizacionResponse
 from .service import UsuarioService
 from fastapi import Depends, Form, File, UploadFile
 from app.core.security import get_current_user
@@ -193,3 +193,24 @@ def actualizar_ubicacion(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al actualizar ubicación: {str(e)}")
+
+@router.get("/mi-organizacion", response_model=OrganizacionResponse)
+def obtener_mi_organizacion(
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.obtener_organizacion(usuario_actual["usuario_id_pk"])
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.patch("/mi-organizacion", response_model=OrganizacionResponse)
+def actualizar_mi_organizacion(
+    datos: dict,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.actualizar_organizacion(usuario_actual["usuario_id_pk"], datos)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

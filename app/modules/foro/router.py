@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile, File, Form
 from typing import Optional, List
+from .repository import OrganizacionForoRepository
 from .schemas import (PublicacionResponse, CrearPublicacionRequest, ActualizarPublicacionRequest, PaginaPublicaciones,ComentarioResponse, CrearComentarioRequest, PaginaComentarios,GrupoResponse, CrearGrupoRequest, MiembroGrupoResponse, ResponderSolicitudRequest, EliminarMiembroRequest,ActualizarGrupoRequest)
-from .service import PublicacionService, ComentarioService, GrupoService
+from .service import PublicacionService, ComentarioService, GrupoService, OrganizacionForoService
 from app.core.security import get_current_user
 
 router = APIRouter(tags=["Foro"])
@@ -360,3 +361,59 @@ def eliminar_grupo(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============ ORGANIZACIONES============
+
+class OrganizacionForoService:
+    def __init__(self):
+        self.org_repository = OrganizacionForoRepository()
+        # Necesitamos acceder al repositorio de usuarios para saber si está verificado
+        from app.modules.usuarios.repository import UsuarioRepository 
+        self.usuario_repository = UsuarioRepository()
+
+    def obtener_mi_organizacion(self, usuario_id: int) -> dict:
+        usuario = self.usuario_repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+        
+        if usuario.get("rol_usuario") != "organizacion":
+            raise ValueError("Este usuario no es una organización")
+
+        org = self.org_repository.obtener_por_dueno(usuario_id)
+        if not org:
+            raise ValueError("Datos de organización no encontrados")
+
+        return self._enriquecer_para_foro(org, usuario, usuario_id)
+
+    def obtener_organizaciones_verificadas(self, limite: int = 20) -> list:
+        orgs = self.org_repository.obtener_verificadas(limite)
+        resultado = []
+        
+        for org in orgs:
+            usuario = self.usuario_repository.obtener_por_id(org.get("dueño_id"))
+            # Solo mostramos si el usuario dueño está verificado
+            if usuario and usuario.get("verificado"):
+                resultado.append(self._enriquecer_para_foro(org, usuario, usuario["usuario_id_pk"]))
+                
+        return resultado
+
+    def _enriquecer_para_foro(self, org: dict, usuario: dict, usuario_id_actual: int) -> dict:
+        """Mapea los datos de la BD al formato exacto que espera el Flutter OrganizacionForo"""
+        return {
+            "id": org.get("id") or org.get("organizacion_id_pk"), # Ajusta según el nombre real de tu PK
+            "usuario_id": org.get("dueño_id"),
+            "nombre": org.get("nombre", ""),
+            "descripcion": org.get("descripcion"),
+            "logo_url": org.get("logo_url"),
+            "foto_portada": org.get("foto_portada"), 
+            "verificada": usuario.get("verificado", True),
+            "cantidad_seguidores": int(org.get("cantidad_seguidores", 0)), 
+            "es_seguidor": False, # TODO: Implementar lógica de seguidores después
+            "tipos_animales": org.get("categoria"), # Mapeamos tu columna 'categoria' a 'tipos_animales'
+            "telefono_emergencia": org.get("telefono_emergencia"),
+            "correo_institucional": org.get("correo_institucional"),
+            "registro_legal": org.get("registro_legal"),
+            "fecha_fundacion": str(org.get("fecha_fundacion")) if org.get("fecha_fundacion") else None,
+            "meta_mensual": float(org.get("meta_mensual", 0.0)),
+            "recaudado_mensual": float(org.get("recaudado_mensual", 0.0)),
+        }

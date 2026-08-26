@@ -128,3 +128,24 @@ class ActualizarGrupoRequest(BaseModel):
     nombre: Optional[str] = None
     descripcion: Optional[str] = None
     privacidad: Optional[str] = None
+
+class OrganizacionForoResponse(BaseModel):
+    id: int
+    usuario_id: int
+    nombre: str
+    descripcion: Optional[str] = None
+    logo_url: Optional[str] = None
+    foto_portada: Optional[str] = None
+    verificada: bool = True
+    cantidad_seguidores: int = 0
+    es_seguidor: bool = False
+    tipos_animales: Optional[str] = None
+    telefono_emergencia: Optional[str] = None
+    correo_institucional: Optional[str] = None
+    registro_legal: Optional[str] = None
+    fecha_fundacion: Optional[str] = None  # Supabase lo devuelve como string ISO
+    meta_mensual: float = 0.0
+    recaudado_mensual: float = 0.0
+
+    class Config:
+        from_attributes = True

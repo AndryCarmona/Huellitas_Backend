@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import UploadFile
 from typing import List
-from .repository import PublicacionRepository, ComentarioRepository, GrupoRepository
+from .repository import PublicacionRepository, ComentarioRepository, GrupoRepository, OrganizacionForoRepository
 from .schemas import (CrearPublicacionRequest, ActualizarPublicacionRequest, CrearComentarioRequest, CrearGrupoRequest,ActualizarGrupoRequest)
 from app.core.database import supabase
 from app.modules.notificaciones.repository import NotificacionRepository
@@ -57,7 +57,6 @@ class PublicacionService:
 
     def obtener_feed(self, usuario_id: int, categoria: str = None,
                      grupo_id: int = None, cursor: int = None, limite: int = 20):
-        # ... (igual que antes) ...
         publicaciones = self.repository.obtener_feed(categoria, grupo_id, cursor, limite + 1)
         hay_mas = len(publicaciones) > limite
         elementos = publicaciones[:limite]
@@ -614,3 +613,66 @@ class GrupoService:
             }])
         except Exception as e:
             print(f"No se pudo crear notificación de comentario: {e}")
+
+# ============ ORGANIZACIONES (Para el Foro) ============
+
+class OrganizacionForoService:
+    def __init__(self):
+        self.org_repository = OrganizacionForoRepository()
+        from app.modules.usuarios.repository import UsuarioRepository 
+        self.usuario_repository = UsuarioRepository()
+
+    def obtener_mi_organizacion(self, usuario_id: int) -> dict:
+        # ... (igual que antes) ...
+        usuario = self.usuario_repository.obtener_por_id(usuario_id)
+        if not usuario or usuario.get("rol_usuario") != "organizacion":
+            raise ValueError("Usuario no es una organización")
+
+        org = self.org_repository.obtener_por_dueno(usuario_id)
+        if not org:
+            raise ValueError("Datos de organización no encontrados")
+
+        return self._enriquecer_para_foro(org, usuario, usuario_id)
+
+    def obtener_organizaciones_verificadas(self) -> list:
+        # ... (igual que antes) ...
+        orgs = self.org_repository.obtener_verificadas()
+        resultado = []
+        for org in orgs:
+            usuario = self.usuario_repository.obtener_por_id(org.get("dueño_id"))
+            if usuario and usuario.get("verificado"):
+                resultado.append(self._enriquecer_para_foro(org, usuario, usuario["usuario_id_pk"]))
+        return resultado
+
+    def _enriquecer_para_foro(self, org: dict, usuario: dict, usuario_id_actual: int) -> dict:
+        """Mapea los datos y CALCULA los valores dinámicos"""
+        organizacion_id = org.get("id") or org.get("organizacion_id")
+        
+        # 👇 CÁLCULOS DINÁMICOS EN TIEMPO REAL
+        cantidad_seguidores = self.org_repository.obtener_cantidad_seguidores(organizacion_id)
+        recaudado_mensual = self.org_repository.obtener_recaudado_mensual(organizacion_id)
+        
+        # TODO: Aquí podrías consultar la tabla 'seguidores' para ver si usuario_id_actual está en ella
+        es_seguidor = False 
+
+        return {
+            "id": organizacion_id,
+            "usuario_id": org.get("dueño_id"),
+            "nombre": org.get("nombre", ""),
+            "descripcion": org.get("descripcion"),
+            "logo_url": org.get("logo_url"),
+            "foto_portada": org.get("foto_portada"), 
+            "verificada": usuario.get("verificado", True),
+            
+            "cantidad_seguidores": cantidad_seguidores,       # 👈 VALOR CALCULADO
+            "es_seguidor": es_seguidor,
+            
+            "tipos_animales": org.get("categoria"),
+            "telefono_emergencia": org.get("telefono_emergencia"),
+            "correo_institucional": org.get("correo_institucional"),
+            "registro_legal": org.get("registro_legal"),
+            "fecha_fundacion": str(org.get("fecha_fundacion")) if org.get("fecha_fundacion") else None,
+            
+            "meta_mensual": float(org.get("meta_mensual", 0.0)), # Este SÍ es estático (lo define la org)
+            "recaudado_mensual": recaudado_mensual,              # 👈 VALOR CALCULADO
+        }

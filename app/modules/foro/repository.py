@@ -238,3 +238,36 @@ class GrupoRepository:
             .execute()
         )
         return result.data or []
+
+        # --- Foro de Organizaciones ---
+class OrganizacionForoRepository:
+    def obtener_organizaciones_verificadas(self):
+        # Obtenemos organizaciones. Asumimos que si está en esta tabla, es verificada.
+        result = supabase.table("organizaciones").select("*").execute()
+        return result.data or []
+
+    def obtener_organizacion_por_dueno(self, usuario_id: int):
+        result = supabase.table("organizaciones").select("*").eq("dueño_id", usuario_id).execute()
+        return result.data[0] if result.data else None
+
+    def obtener_cantidad_seguidores(self, organizacion_id: int) -> int:
+        """Cuenta cuántos usuarios siguen a esta organización"""
+        result = supabase.table("seguidores_organizaciones").select(
+            "id", count="exact"
+        ).eq("organizacion_id", organizacion_id).execute()
+        
+        return result.count or 0
+
+    def obtener_recaudado_mensual(self, organizacion_id: int) -> float:
+        """Suma el monto de las donaciones completadas del mes actual"""
+        from datetime import datetime, timezone
+        
+        hoy = datetime.now(timezone.utc)
+        primer_dia_mes = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+        
+        result = supabase.table("donaciones").select("monto").eq(
+            "organizacion_id", organizacion_id
+        ).eq("estado", "completada").gte("fecha", primer_dia_mes).execute()
+        
+        total = sum(d.get("monto", 0) for d in result.data) if result.data else 0.0
+        return float(total)

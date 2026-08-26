@@ -3,7 +3,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext 
 from .repository import UsuarioRepository
-from .schemas import UsuarioCreate, EditarPerfilRequest
+from .schemas import UsuarioCreate, EditarPerfilRequest, OrganizacionResponse
 from app.core.database import supabase
 from app.core.email_service import generar_codigo_verificacion, enviar_correo_verificacion
 import os
@@ -37,6 +37,17 @@ class UsuarioService:
         verificacion = self.repository.obtener_verificacion(usuario_data.correo)
         correo_confirmado = bool(verificacion and verificacion.get("confirmado"))
 
+        es_organizacion = usuario_data.organizacion is not None
+        
+        if es_organizacion:
+            rol = "organizacion"
+            verificado = True
+            correo_confirmado = True
+        else:
+            rol = "usuario"
+            verificado = False
+            correo_confirmado = False
+
         if EXIGIR_CORREO_CONFIRMADO and not correo_confirmado:
             raise ValueError("Debes confirmar tu correo antes de registrarte")
 
@@ -62,13 +73,24 @@ class UsuarioService:
             "identificacion_trasera": usuario_data.identificacion_trasera,
             "verificado": False,
             "correo_confirmado": correo_confirmado,
-            "rol_usuario": "usuario",
+            "rol_usuario": rol,
         }
 
         nuevo_usuario = self.repository.crear_usuario(payload)
 
         if correo_confirmado:
             self.repository.eliminar_verificacion(usuario_data.correo)
+
+        if es_organizacion and usuario_data.organizacion:
+            org_payload = {
+                "nombre": usuario_data.organizacion.nombre,
+                "descripcion": usuario_data.organizacion.descripcion,
+                "registro_legal": usuario_data.organizacion.registroLegal,
+                "categoria": usuario_data.organizacion.tiposAnimales,
+                "cuenta_bancaria": usuario_data.organizacion.cuentaBancaria,
+                "logo_url": None,
+            }
+            self.repository.crear_organizacion(nuevo_usuario["usuario_id_pk"], org_payload)
 
         return nuevo_usuario
     
@@ -235,3 +257,33 @@ class UsuarioService:
             "ubicacion_actualizada_en": datetime.now(timezone.utc).isoformat(),
         }
         return self.repository.actualizar_perfil(usuario_id, data)
+
+    def obtener_organizacion(self, usuario_id: int):
+        """Obtiene la organización del usuario actual"""
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+        
+        if usuario["rol_usuario"] != "organizacion":
+            raise ValueError("Este usuario no es una organización")
+
+        organizacion = self.repository.obtener_organizacion_por_dueno(usuario_id)
+        if not organizacion:
+            raise ValueError("Organización no encontrada")
+
+        return organizacion
+
+    def actualizar_organizacion(self, usuario_id: int, data: dict):
+        """Actualiza los datos de la organización"""
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario:
+            raise ValueError("Usuario no encontrado")
+        
+        if usuario["rol_usuario"] != "organizacion":
+            raise ValueError("Este usuario no es una organización")
+
+        organizacion = self.repository.obtener_organizacion_por_dueno(usuario_id)
+        if not organizacion:
+            raise ValueError("Organización no encontrada")
+
+        return self.repository.actualizar_organizacion(organizacion["id"], data)

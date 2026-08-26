@@ -56,3 +56,25 @@ class UsuarioRepository:
             .execute()
         )
         return result.data
+
+# --- Organización ---
+    def crear_organizacion(self, usuario_id: int, data: dict):
+        organizacion_data = {
+            "nombre": data["nombre"],
+            "descripcion": data.get("descripcion", ""),
+            "registro_legal": data.get("registroLegal"),
+            "categoria": data.get("categoria", ""),
+            "cuenta_bancaria": data.get("cuenta_bancaria"),
+            "logo_url": data.get("logo_url"),
+            "dueño_id": usuario_id,
+        }
+        result = supabase.table("organizaciones").insert(organizacion_data).execute()
+        return result.data[0] if result.data else None
+
+    def obtener_organizacion_por_dueno(self, usuario_id: int):
+        result = supabase.table("organizaciones").select("*").eq("dueño_id", usuario_id).execute()
+        return result.data[0] if result.data else None
+
+    def actualizar_organizacion(self, organizacion_id: int, data: dict):
+        result = supabase.table("organizaciones").update(data).eq("id", organizacion_id).execute()
+        return result.data[0] if result.data else None

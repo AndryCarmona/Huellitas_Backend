@@ -10,6 +10,7 @@ class CrearPublicacionRequest(BaseModel):
     contenido: str
     categoria: Optional[str] = None
     grupo_id: Optional[int] = None
+    organizacion_id: Optional[int] = None
 
 class ActualizarPublicacionRequest(BaseModel):
     titulo: Optional[str] = None
@@ -20,6 +21,7 @@ class PublicacionResponse(BaseModel):
     publicacion_id: int
     usuario_id: Optional[int] = None
     grupo_id_fk: Optional[int] = None
+    organizacion_id_fk: Optional[int] = None
     titulo: str
     nombre_usuario: str
     foto_usuario: Optional[str] = None
@@ -129,6 +131,7 @@ class ActualizarGrupoRequest(BaseModel):
     descripcion: Optional[str] = None
     privacidad: Optional[str] = None
 
+######ORGANIZACIONES
 class OrganizacionForoResponse(BaseModel):
     id: int
     usuario_id: int
@@ -143,7 +146,7 @@ class OrganizacionForoResponse(BaseModel):
     telefono_emergencia: Optional[str] = None
     correo_institucional: Optional[str] = None
     registro_legal: Optional[str] = None
-    fecha_fundacion: Optional[str] = None  # Supabase lo devuelve como string ISO
+    fecha_fundacion: Optional[str] = None
     meta_mensual: float = 0.0
     recaudado_mensual: float = 0.0
 

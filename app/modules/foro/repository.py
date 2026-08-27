@@ -23,16 +23,19 @@ class PublicacionRepository:
         ).execute()
         return result.data[0] if result.data else None
 
-    def obtener_feed(self, categoria: str = None, grupo_id: int = None,
-                     cursor: int = None, limite: int = 20):
+    def obtener_feed(self, categoria: str = None, grupo_id: int = None, organizacion_id: int = None, cursor: int = None):
         query = supabase.table("publicacion").select("*").eq("estado", "activa")
+        
         if categoria:
             query = query.eq("categoria", categoria)
         if grupo_id:
             query = query.eq("grupo_id_fk", grupo_id)
+        if organizacion_id:
+            query = query.eq("organizacion_id_fk", organizacion_id)
         if cursor:
             query = query.lt("publicacion_id", cursor)
-        result = query.order("fecha_publicacion", desc=True).limit(limite).execute()
+            
+        result = query.order("fecha_publicacion", desc=True).execute()
         return result.data or []
 
     def toggle_me_gusta(self, publicacion_id: int, usuario_id: int):
@@ -239,10 +242,8 @@ class GrupoRepository:
         )
         return result.data or []
 
-        # --- Foro de Organizaciones ---
 class OrganizacionForoRepository:
     def obtener_organizaciones_verificadas(self):
-        # Obtenemos organizaciones. Asumimos que si está en esta tabla, es verificada.
         result = supabase.table("organizaciones").select("*").execute()
         return result.data or []
 
@@ -254,20 +255,49 @@ class OrganizacionForoRepository:
         """Cuenta cuántos usuarios siguen a esta organización"""
         result = supabase.table("seguidores_organizaciones").select(
             "id", count="exact"
-        ).eq("organizacion_id", organizacion_id).execute()
-        
+        ).eq("organizacion_id_fk", organizacion_id).execute()
         return result.count or 0
 
     def obtener_recaudado_mensual(self, organizacion_id: int) -> float:
         """Suma el monto de las donaciones completadas del mes actual"""
         from datetime import datetime, timezone
-        
+
         hoy = datetime.now(timezone.utc)
         primer_dia_mes = hoy.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
         
         result = supabase.table("donaciones").select("monto").eq(
             "organizacion_id", organizacion_id
-        ).eq("estado", "completada").gte("fecha", primer_dia_mes).execute()
+        ).eq("estado", "completada").gte("fecha_donacion", primer_dia_mes).execute()
         
         total = sum(d.get("monto", 0) for d in result.data) if result.data else 0.0
         return float(total)
+
+    def toggle_seguidor(self, organizacion_id: int, usuario_id: int) -> bool:
+        """Si ya sigue, deja de seguir. Si no sigue, comienza a seguir. Devuelve el nuevo estado."""
+        existente = supabase.table("seguidores_organizaciones").select("id").eq(
+            "organizacion_id_fk", organizacion_id
+        ).eq("usuario_id_fk", usuario_id).execute()
+
+        if existente.data:
+            supabase.table("seguidores_organizaciones").delete().eq(
+                "organizacion_id_fk", organizacion_id
+            ).eq("usuario_id_fk", usuario_id).execute()
+            return False
+        else:
+            supabase.table("seguidores_organizaciones").insert({
+                "organizacion_id_fk": organizacion_id,
+                "usuario_id_fk": usuario_id
+            }).execute()
+            return True
+
+    def es_seguidor(self, organizacion_id: int, usuario_id: int) -> bool:
+        """Verifica rápidamente si un usuario ya sigue a la organización"""
+        result = supabase.table("seguidores_organizaciones").select("id").eq(
+            "organizacion_id_fk", organizacion_id
+        ).eq("usuario_id_fk", usuario_id).execute()
+        return bool(result.data)
+
+    def obtener_por_id(self, organizacion_id: int):
+        """Obtiene una organización por su ID"""
+        result = supabase.table("organizaciones").select("*").eq("id", organizacion_id).execute()
+        return result.data[0] if result.data else None

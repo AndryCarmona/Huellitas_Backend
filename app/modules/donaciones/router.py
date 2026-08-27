@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from .service import DonacionService
-from .schemas import DonacionCreate, OrganizacionResponse, DonacionResponse
+from .schemas import DonacionCreate, OrganizacionResponse, DonacionResponse, OrganizacionStatsResponse, ActualizarMetaRequest
 from app.core.security import get_current_user
 
 router = APIRouter(prefix="/donaciones", tags=["Donaciones"])
@@ -60,3 +60,30 @@ def obtener_mis_donaciones(current_user: dict = Depends(get_current_user)):
             status_code=500,
             detail=f"Error al obtener donaciones: {str(e)}",
         )
+
+@router.get("/organizacion/{organizacion_id}/estadisticas", response_model=OrganizacionStatsResponse)
+def obtener_estadisticas_organizacion(
+    organizacion_id: int,
+    current_user: dict = Depends(get_current_user)
+):
+    """Obtiene la meta, lo recaudado y el historial de donaciones de una organización."""
+    try:
+        return donacion_service.obtener_estadisticas_organizacion(organizacion_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/organizacion/{organizacion_id}/meta", response_model=OrganizacionStatsResponse)
+def actualizar_meta_organizacion(
+    organizacion_id: int,
+    datos: ActualizarMetaRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Actualiza la meta mensual de la organización."""
+    try:
+        donacion_service.actualizar_meta_organizacion(organizacion_id, datos.meta_mensual)
+        # Retornamos las estadísticas actualizadas
+        return donacion_service.obtener_estadisticas_organizacion(organizacion_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -41,3 +41,26 @@ class DonacionRepository:
             .execute()
         )
         return response.data
+
+    def obtener_donaciones_recibidas(self, organizacion_id: int, limite: int = 50) -> List[Dict[str, Any]]:
+        """Obtiene las donaciones completadas de una organización, ordenadas por fecha."""
+        response = (
+            supabase.table("donaciones")
+            .select("*")
+            .eq("organizacion_id", organizacion_id)
+            .eq("estado", "completada")
+            .order("fecha_donacion", desc=True)
+            .limit(limite)
+            .execute()
+        )
+        return response.data or []
+
+    def actualizar_meta_mensual(self, organizacion_id: int, nueva_meta: float) -> Dict[str, Any]:
+        """Actualiza la meta mensual de la organización."""
+        response = (
+            supabase.table("organizaciones")
+            .update({"meta_mensual": nueva_meta})
+            .eq("id", organizacion_id) # Ajusta a tu PK real si es organizacion_id_pk
+            .execute()
+        )
+        return response.data[0] if response.data else {}

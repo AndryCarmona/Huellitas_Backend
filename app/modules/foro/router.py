@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile, File, Form
 from typing import Optional, List
 from .repository import OrganizacionForoRepository
-from .schemas import (PublicacionResponse, CrearPublicacionRequest, ActualizarPublicacionRequest, PaginaPublicaciones,ComentarioResponse, CrearComentarioRequest, PaginaComentarios,GrupoResponse, CrearGrupoRequest, MiembroGrupoResponse, ResponderSolicitudRequest, EliminarMiembroRequest,ActualizarGrupoRequest)
+from .schemas import (PublicacionResponse, CrearPublicacionRequest, ActualizarPublicacionRequest, PaginaPublicaciones,ComentarioResponse, CrearComentarioRequest, PaginaComentarios,GrupoResponse, CrearGrupoRequest, MiembroGrupoResponse, ResponderSolicitudRequest, EliminarMiembroRequest,ActualizarGrupoRequest, OrganizacionForoResponse)
 from .service import PublicacionService, ComentarioService, GrupoService, OrganizacionForoService
 from app.core.security import get_current_user
 
@@ -13,8 +13,8 @@ router = APIRouter(tags=["Foro"])
 def obtener_feed(
     categoria: Optional[str] = None,
     grupo_id: Optional[int] = None,
+    organizacion_id: Optional[int] = None,
     cursor: Optional[str] = None,
-    limite: int = Query(default=20, le=100),
     usuario_actual: dict = Depends(get_current_user),
 ):
     service = PublicacionService()
@@ -23,8 +23,8 @@ def obtener_feed(
             usuario_id=usuario_actual["usuario_id_pk"],
             categoria=categoria,
             grupo_id=grupo_id,
+            organizacion_id=organizacion_id,
             cursor=int(cursor) if cursor else None,
-            limite=limite,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener feed: {str(e)}")
@@ -46,6 +46,7 @@ def crear_publicacion(
     contenido: str = Form(...),
     categoria: Optional[str] = Form(None),
     grupo_id: Optional[int] = Form(None),
+    organizacion_id: Optional[int] = Form(None),
     imagen: Optional[UploadFile] = File(None),
     usuario_actual: dict = Depends(get_current_user),
 ):
@@ -56,6 +57,7 @@ def crear_publicacion(
             contenido=contenido,
             categoria=categoria,
             grupo_id=grupo_id,
+            organizacion_id= organizacion_id,
         )
         return service.crear_publicacion(data, usuario_actual["usuario_id_pk"], imagen)
     except ValueError as e:
@@ -362,58 +364,41 @@ def eliminar_grupo(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ============ ORGANIZACIONES============
+# ============ ORGANIZACIONES (Para el Foro) ============
 
-class OrganizacionForoService:
-    def __init__(self):
-        self.org_repository = OrganizacionForoRepository()
-        # Necesitamos acceder al repositorio de usuarios para saber si está verificado
-        from app.modules.usuarios.repository import UsuarioRepository 
-        self.usuario_repository = UsuarioRepository()
+@router.get("/organizaciones/mi-organizacion", response_model=OrganizacionForoResponse)
+def obtener_mi_organizacion_foro(
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = OrganizacionForoService()
+    try:
+        return service.obtener_mi_organizacion(usuario_actual["usuario_id_pk"])
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
-    def obtener_mi_organizacion(self, usuario_id: int) -> dict:
-        usuario = self.usuario_repository.obtener_por_id(usuario_id)
-        if not usuario:
-            raise ValueError("Usuario no encontrado")
-        
-        if usuario.get("rol_usuario") != "organizacion":
-            raise ValueError("Este usuario no es una organización")
+@router.get("/organizaciones/verificadas", response_model=List[OrganizacionForoResponse])
+def obtener_organizaciones_verificadas():
+    service = OrganizacionForoService()
+    try:
+        return service.obtener_organizaciones_verificadas()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener organizaciones: {str(e)}")
 
-        org = self.org_repository.obtener_por_dueno(usuario_id)
-        if not org:
-            raise ValueError("Datos de organización no encontrados")
+@router.post("/organizaciones/{organizacion_id}/seguir")
+def toggle_seguir_organizacion(
+    organizacion_id: int,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = OrganizacionForoService()
+    try:
+        org = service.org_repository.obtener_por_id(organizacion_id)
+        if org.get("dueño_id") == usuario_actual["usuario_id_pk"]:
+            raise ValueError("No puedes seguir a tu propia organización")
 
-        return self._enriquecer_para_foro(org, usuario, usuario_id)
-
-    def obtener_organizaciones_verificadas(self, limite: int = 20) -> list:
-        orgs = self.org_repository.obtener_verificadas(limite)
-        resultado = []
-        
-        for org in orgs:
-            usuario = self.usuario_repository.obtener_por_id(org.get("dueño_id"))
-            # Solo mostramos si el usuario dueño está verificado
-            if usuario and usuario.get("verificado"):
-                resultado.append(self._enriquecer_para_foro(org, usuario, usuario["usuario_id_pk"]))
-                
+        resultado = service.toggle_seguir_organizacion(
+            organizacion_id,
+            usuario_actual["usuario_id_pk"]
+        )
         return resultado
-
-    def _enriquecer_para_foro(self, org: dict, usuario: dict, usuario_id_actual: int) -> dict:
-        """Mapea los datos de la BD al formato exacto que espera el Flutter OrganizacionForo"""
-        return {
-            "id": org.get("id") or org.get("organizacion_id_pk"), # Ajusta según el nombre real de tu PK
-            "usuario_id": org.get("dueño_id"),
-            "nombre": org.get("nombre", ""),
-            "descripcion": org.get("descripcion"),
-            "logo_url": org.get("logo_url"),
-            "foto_portada": org.get("foto_portada"), 
-            "verificada": usuario.get("verificado", True),
-            "cantidad_seguidores": int(org.get("cantidad_seguidores", 0)), 
-            "es_seguidor": False, # TODO: Implementar lógica de seguidores después
-            "tipos_animales": org.get("categoria"), # Mapeamos tu columna 'categoria' a 'tipos_animales'
-            "telefono_emergencia": org.get("telefono_emergencia"),
-            "correo_institucional": org.get("correo_institucional"),
-            "registro_legal": org.get("registro_legal"),
-            "fecha_fundacion": str(org.get("fecha_fundacion")) if org.get("fecha_fundacion") else None,
-            "meta_mensual": float(org.get("meta_mensual", 0.0)),
-            "recaudado_mensual": float(org.get("recaudado_mensual", 0.0)),
-        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

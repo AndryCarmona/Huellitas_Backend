@@ -1,6 +1,7 @@
 from app.core.database import SUPABASE_JWT
 import jwt 
 from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from passlib.context import CryptContext 
 from .repository import UsuarioRepository
 from .schemas import UsuarioCreate, EditarPerfilRequest, OrganizacionResponse
@@ -14,6 +15,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 BUCKET_NAME = "usuarios-completar-perfil"
 BUCKET_FOTOS_PERFIL = "fotos-perfil"
+BUCKET_ORGANIZACIONES = "organizaciones"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -71,7 +73,7 @@ class UsuarioService:
             "ciudad": usuario_data.ciudad,
             "identificacion_frontal": usuario_data.identificacion_frontal,
             "identificacion_trasera": usuario_data.identificacion_trasera,
-            "verificado": False,
+            "verificado": verificado,
             "correo_confirmado": correo_confirmado,
             "rol_usuario": rol,
         }
@@ -84,10 +86,14 @@ class UsuarioService:
         if es_organizacion and usuario_data.organizacion:
             org_payload = {
                 "nombre": usuario_data.organizacion.nombre,
-                "descripcion": usuario_data.organizacion.descripcion,
                 "registro_legal": usuario_data.organizacion.registroLegal,
-                "categoria": usuario_data.organizacion.tiposAnimales,
+                "categoria": "refugios", 
+                "tipos_animales": usuario_data.organizacion.tiposAnimales,
+                "telefono_emergencia": usuario_data.organizacion.telefonoEmergencia,
+                "correo_institucional": usuario_data.organizacion.correoInstitucional,
+                "fecha_fundacion": usuario_data.organizacion.fechaFundacion.isoformat(),
                 "cuenta_bancaria": usuario_data.organizacion.cuentaBancaria,
+                "descripcion": usuario_data.organizacion.descripcion, 
                 "logo_url": None,
             }
             self.repository.crear_organizacion(nuevo_usuario["usuario_id_pk"], org_payload)
@@ -287,3 +293,41 @@ class UsuarioService:
             raise ValueError("Organización no encontrada")
 
         return self.repository.actualizar_organizacion(organizacion["id"], data)
+
+    def _subir_imagen_organizacion(self, usuario_id: int, archivo: UploadFile, tipo: str) -> str:
+        """tipo debe ser 'perfil' o 'portada'"""
+        if tipo not in ("perfil", "portada"):
+            raise ValueError("Tipo de imagen inválido")
+        
+        contenido = archivo.file.read()
+        extension = archivo.filename.split(".")[-1].lower()
+        if extension not in ("jpg", "jpeg", "png", "webp"):
+            raise ValueError("Formato no válido. Usa JPG, PNG o WEBP")
+            
+        ruta = f"{usuario_id}/{tipo}.{extension}"
+        
+        supabase.storage.from_(BUCKET_ORGANIZACIONES).upload(
+            ruta, contenido,
+            {"content-type": archivo.content_type or "image/jpeg", "upsert": "true"}
+        )
+        return supabase.storage.from_(BUCKET_ORGANIZACIONES).get_public_url(ruta)
+
+    def actualizar_imagenes_organizacion(self, usuario_id: int, foto_perfil: UploadFile = None, foto_portada: UploadFile = None):
+        usuario = self.repository.obtener_por_id(usuario_id)
+        if not usuario or usuario["rol_usuario"] != "organizacion":
+            raise ValueError("Solo las organizaciones pueden actualizar estas imágenes")
+
+        organizacion = self.repository.obtener_organizacion_por_dueno(usuario_id)
+        if not organizacion:
+            raise ValueError("Organización no encontrada")
+
+        updates = {}
+        if foto_perfil:
+            updates["logo_url"] = self._subir_imagen_organizacion(usuario_id, foto_perfil, "perfil")
+        if foto_portada:
+            updates["foto_portada"] = self._subir_imagen_organizacion(usuario_id, foto_portada, "portada")
+
+        if not updates:
+            raise ValueError("No se enviaron imágenes")
+
+        return self.repository.actualizar_imagenes_organizacion(organizacion["id"], updates)

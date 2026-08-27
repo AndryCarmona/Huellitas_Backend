@@ -2,6 +2,17 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime, date
 from typing import Optional
 
+class OrganizacionCreate(BaseModel):
+    nombre: str
+    registroLegal: str
+    tiposAnimales: str
+    telefonoEmergencia: str
+    correoInstitucional: EmailStr
+    fechaFundacion: date
+    cuentaBancaria: Optional[str] = None
+    descripcion: Optional[str] = None
+    categoria: Optional[str] = "refugios" 
+
 class UsuarioCreate(BaseModel):
     correo: EmailStr
     contrasenia: str
@@ -18,6 +29,7 @@ class UsuarioCreate(BaseModel):
     identificacion_frontal: Optional[str] = None
     identificacion_trasera: Optional[str] = None
     foto_selfie: Optional[str] = None
+    organizacion: Optional[OrganizacionCreate] = None
 
 class UsuarioLogin(BaseModel):
     identificador: str
@@ -64,7 +76,7 @@ class CambiarContraseniaRequest(BaseModel):
     contrasenia_nueva: str
 
 class ActualizarFotoPerfilRequest(BaseModel):
-    foto_perfil: str 
+    foto_perfil: str
 
 #Hacer públicos a los usuarios
 class UsuarioPublicoResponse(BaseModel):
@@ -87,3 +99,30 @@ class ConfirmarCodigoRequest(BaseModel):
 class ActualizarUbicacionRequest(BaseModel):
     latitud: float
     longitud: float
+
+class OrganizacionResponse(BaseModel):
+    id: int
+    nombre: str
+    descripcion: Optional[str] = None
+    logo_url: Optional[str] = None
+    categoria: Optional[str] = None
+    tipos_animales: Optional[str] = None
+    cuenta_bancaria: Optional[str] = None
+    created_at: datetime
+    dueño_id: int
+
+    class Config:
+        from_attributes = True
+
+class OrganizacionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    categoria: Optional[str] = None
+    tipos_animales: Optional[str] = None
+    cuenta_bancaria: Optional[str] = None
+    banco: Optional[str] = None
+    titular: Optional[str] = None
+    logo_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True

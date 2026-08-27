@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse, SolicitarCodigoRequest, ConfirmarCodigoRequest, ActualizarUbicacionRequest
+from .schemas import UsuarioCreate, UsuarioResponse, UsuarioLogin, Token, EditarPerfilRequest, CambiarContraseniaRequest, ActualizarFotoPerfilRequest, UsuarioPublicoResponse, SolicitarCodigoRequest, ConfirmarCodigoRequest, ActualizarUbicacionRequest, OrganizacionResponse, OrganizacionUpdate
 from .service import UsuarioService
 from fastapi import Depends, Form, File, UploadFile
 from app.core.security import get_current_user
+from typing import Optional, List, Dict, Any
 
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
@@ -145,6 +146,46 @@ def foto_perfil_personalizada(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/mi-organizacion", response_model=OrganizacionResponse)
+def obtener_mi_organizacion(
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.obtener_organizacion(usuario_actual["usuario_id_pk"])
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.patch("/mi-organizacion", response_model=OrganizacionResponse)
+def actualizar_mi_organizacion(
+    datos: OrganizacionUpdate,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.actualizar_organizacion(
+            usuario_actual["usuario_id_pk"],
+            datos.dict(exclude_unset=True)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    from fastapi import UploadFile, File
+
+@router.patch("/mi-organizacion/imagenes", response_model=OrganizacionResponse)
+def actualizar_imagenes_organizacion(
+    foto_perfil: Optional[UploadFile] = File(None),
+    foto_portada: Optional[UploadFile] = File(None),
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = UsuarioService()
+    try:
+        return service.actualizar_imagenes_organizacion(
+            usuario_actual["usuario_id_pk"], foto_perfil, foto_portada
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
 @router.get("/{usuario_id}", response_model=UsuarioPublicoResponse)
 def obtener_perfil_publico(
@@ -156,6 +197,7 @@ def obtener_perfil_publico(
         return service.obtener_perfil_publico(usuario_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/enviar-codigo")
 async def enviar_codigo(datos: SolicitarCodigoRequest):

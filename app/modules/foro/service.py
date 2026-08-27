@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import UploadFile
 from typing import List
-from .repository import PublicacionRepository, ComentarioRepository, GrupoRepository
+from .repository import PublicacionRepository, ComentarioRepository, GrupoRepository, OrganizacionForoRepository
 from .schemas import (CrearPublicacionRequest, ActualizarPublicacionRequest, CrearComentarioRequest, CrearGrupoRequest,ActualizarGrupoRequest)
 from app.core.database import supabase
 from app.modules.notificaciones.repository import NotificacionRepository
@@ -29,12 +29,26 @@ class PublicacionService:
         return supabase.storage.from_(BUCKET_PUBLICACIONES).get_public_url(ruta)
 
     def _enriquecer_publicacion(self, pub: dict, usuario_id: int) -> dict:
-        # ... (igual que antes, sin cambios) ...
-        usuario = supabase.table("usuario").select(
-            "nombre, foto_perfil"
-        ).eq("usuario_id_pk", pub.get("usuario_id")).execute()
-        u_data = usuario.data[0] if usuario.data else {"nombre": "Desconocido", "foto_perfil": None}
 
+        if pub.get("organizacion_id_fk"):
+            org = supabase.table("organizaciones").select("nombre, logo_url").eq(
+                "id", pub["organizacion_id_fk"]
+            ).execute()
+            if org.data:
+                nombre_autor = org.data[0]["nombre"]
+                foto_autor = org.data[0].get("logo_url")
+            else:
+                nombre_autor = "Organización eliminada"
+                foto_autor = None
+        else:
+            usuario = supabase.table("usuario").select(
+                "nombre, foto_perfil"
+            ).eq("usuario_id_pk", pub.get("usuario_id")).execute()
+            u_data = usuario.data[0] if usuario.data else {"nombre": "Desconocido", "foto_perfil": None}
+            nombre_autor = u_data["nombre"]
+            foto_autor = u_data.get("foto_perfil")
+
+        # 2. Determinar grupo (si aplica)
         grupo_nombre = None
         if pub.get("grupo_id_fk"):
             g = supabase.table("grupo").select("nombre").eq(
@@ -45,8 +59,8 @@ class PublicacionService:
 
         return {
             **pub,
-            "nombre_usuario": u_data["nombre"],
-            "foto_usuario": u_data.get("foto_perfil"),
+            "nombre_usuario": nombre_autor,
+            "foto_usuario": foto_autor,
             "nombre_grupo": grupo_nombre,
             "me_gusta": self.repository.obtener_me_gusta_count(pub["publicacion_id"]),
             "comentarios": self.repository.obtener_comentarios_count(pub["publicacion_id"]),
@@ -55,18 +69,16 @@ class PublicacionService:
             ),
         }
 
-    def obtener_feed(self, usuario_id: int, categoria: str = None,
-                     grupo_id: int = None, cursor: int = None, limite: int = 20):
-        # ... (igual que antes) ...
-        publicaciones = self.repository.obtener_feed(categoria, grupo_id, cursor, limite + 1)
-        hay_mas = len(publicaciones) > limite
-        elementos = publicaciones[:limite]
-        siguiente = str(elementos[-1]["publicacion_id"]) if hay_mas and elementos else None
-
+    
+    def obtener_feed(self, usuario_id: int, categoria: str = None, grupo_id: int = None, organizacion_id: int = None, cursor: int = None):
+        publicaciones = self.repository.obtener_feed(
+            categoria, grupo_id, organizacion_id, cursor
+        )
+        
         return {
-            "elementos": [self._enriquecer_publicacion(p, usuario_id) for p in elementos],
-            "siguiente_cursor": siguiente,
-            "hay_mas": hay_mas,
+            "elementos": [self._enriquecer_publicacion(p, usuario_id) for p in publicaciones],
+            "siguiente_cursor": None,
+            "hay_mas": False,
         }
 
     def obtener_por_id(self, publicacion_id: int, usuario_id: int):
@@ -76,9 +88,7 @@ class PublicacionService:
             raise ValueError("Publicación no encontrada")
         return self._enriquecer_publicacion(pub, usuario_id)
 
-    # ---------- MODIFICADO: ahora acepta imagen ----------
-    def crear_publicacion(self, data: CrearPublicacionRequest, usuario_id: int,
-                          imagen: UploadFile = None):
+    def crear_publicacion(self, data: CrearPublicacionRequest, usuario_id: int, imagen: UploadFile = None):
         payload = {
             "usuario_id": usuario_id,
             "titulo": data.titulo,
@@ -88,12 +98,12 @@ class PublicacionService:
             payload["categoria"] = data.categoria
         if data.grupo_id is not None:
             payload["grupo_id_fk"] = data.grupo_id
+        if data.organizacion_id is not None:
+            payload["organizacion_id_fk"] = data.organizacion_id
 
-        # 1. Crear la publicación primero
         pub = self.repository.crear_publicacion(payload)
         publicacion_id = pub["publicacion_id"]
 
-        # 2. Si viene imagen, subirla y actualizar el registro
         if imagen is not None and imagen.filename:
             try:
                 url = self._subir_imagen_publicacion(usuario_id, publicacion_id, imagen)
@@ -109,7 +119,6 @@ class PublicacionService:
 
         return self._enriquecer_publicacion(pub, usuario_id)
 
-    # ---------- MODIFICADO: ahora acepta nueva imagen ----------
     def actualizar_publicacion(self, publicacion_id: int, data: ActualizarPublicacionRequest,
                                usuario_id: int, imagen: UploadFile = None):
         pub = self.repository.obtener_por_id(publicacion_id)
@@ -121,7 +130,6 @@ class PublicacionService:
         updates = {k: v for k, v in data.dict().items() if v is not None}
         updates["fecha_actualizacion"] = datetime.utcnow().isoformat()
 
-        # Si viene nueva imagen, subirla
         if imagen is not None and imagen.filename:
             url = self._subir_imagen_publicacion(usuario_id, publicacion_id, imagen)
             updates["imagen_url"] = url
@@ -131,8 +139,6 @@ class PublicacionService:
 
         actualizada = self.repository.actualizar_publicacion(publicacion_id, updates)
         return self._enriquecer_publicacion(actualizada, usuario_id)
-
-    # ... eliminar_publicacion, toggle_me_gusta igual que antes ...
 
         updates = {k: v for k, v in data.dict().items() if v is not None}
         if not updates:
@@ -518,6 +524,7 @@ class GrupoService:
         )
 
         es_creador = grupo["creador_usuario"] == usuario_id
+
         es_administrador = (
             membresia is not None
             and membresia["estado"] == "activa"
@@ -529,14 +536,19 @@ class GrupoService:
                 "No tienes permiso para eliminar este grupo"
             )
 
+        # Eliminar lógicamente todas las publicaciones del grupo
+        self.repository.eliminar_publicaciones_por_grupo(grupo_id)
+
+        # Eliminar el grupo
         eliminado = self.repository.eliminar_grupo(grupo_id)
 
         if not eliminado:
             raise ValueError("No se pudo eliminar el grupo")
 
         return {
-            "mensaje": "Grupo eliminado correctamente",
+            "mensaje": "Grupo y publicaciones eliminados correctamente",
             "grupo_id": grupo_id,
+
         }
 
     #Notificación de aprobado al grupo
@@ -613,3 +625,80 @@ class GrupoService:
             }])
         except Exception as e:
             print(f"No se pudo crear notificación de comentario: {e}")
+
+# ============ ORGANIZACIONES ============
+
+class OrganizacionForoService:
+    def __init__(self):
+        self.org_repository = OrganizacionForoRepository()
+        from app.modules.usuarios.repository import UsuarioRepository 
+        self.usuario_repository = UsuarioRepository()
+
+    def obtener_mi_organizacion(self, usuario_id: int) -> dict:
+        usuario = self.usuario_repository.obtener_por_id(usuario_id)
+        if not usuario or usuario.get("rol_usuario") != "organizacion":
+            raise ValueError("Usuario no es una organización")
+
+        org = self.org_repository.obtener_organizacion_por_dueno(usuario_id)
+        if not org:
+            raise ValueError("Datos de organización no encontrados")
+
+        return self._enriquecer_para_foro(org, usuario, usuario_id)
+
+    def obtener_organizaciones_verificadas(self) -> list:
+        orgs = self.org_repository.obtener_organizaciones_verificadas()
+        resultado = []
+        for org in orgs:
+            dueno_id = org.get("dueno_id") or org.get("dueño_id")
+        
+            if not dueno_id:
+                continue
+
+            usuario = self.usuario_repository.obtener_por_id(dueno_id)
+
+            if usuario and usuario.get("verificado"):
+                resultado.append(self._enriquecer_para_foro(org, usuario, usuario["usuario_id_pk"]))
+        return resultado
+
+    def toggle_seguir_organizacion(self, organizacion_id: int, usuario_id: int) -> dict:
+        org = self.org_repository.obtener_organizacion_por_dueno(0)
+       
+        nuevo_estado = self.org_repository.toggle_seguidor(organizacion_id, usuario_id)
+        
+        total_seguidores = self.org_repository.obtener_cantidad_seguidores(organizacion_id)
+
+        return {
+            "es_seguidor": nuevo_estado,
+            "cantidad_seguidores": total_seguidores
+        }
+
+    def _enriquecer_para_foro(self, org: dict, usuario: dict, usuario_id_actual: int) -> dict:
+        """Mapea los datos y CALCULA los valores dinámicos"""
+        organizacion_id = org.get("id") or org.get("organizacion_id")
+        
+        cantidad_seguidores = self.org_repository.obtener_cantidad_seguidores(organizacion_id)
+        recaudado_mensual = self.org_repository.obtener_recaudado_mensual(organizacion_id)
+        
+        es_seguidor = self.org_repository.es_seguidor(organizacion_id, usuario_id_actual)
+
+        return {
+            "id": organizacion_id,
+            "usuario_id": org.get("dueño_id"),
+            "nombre": org.get("nombre", ""),
+            "descripcion": org.get("descripcion"),
+            "logo_url": org.get("logo_url"),
+            "foto_portada": org.get("foto_portada"),
+            "verificada": usuario.get("verificado", True),
+            
+            "cantidad_seguidores": cantidad_seguidores,
+            "es_seguidor": es_seguidor,
+            
+            "tipos_animales": org.get("categoria"),
+            "telefono_emergencia": org.get("telefono_emergencia"),
+            "correo_institucional": org.get("correo_institucional"),
+            "registro_legal": org.get("registro_legal"),
+            "fecha_fundacion": str(org.get("fecha_fundacion")) if org.get("fecha_fundacion") else None,
+            
+            "meta_mensual": float(org.get("meta_mensual", 0.0)),
+            "recaudado_mensual": recaudado_mensual,
+        }

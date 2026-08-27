@@ -4,6 +4,9 @@ from typing import List
 from .repository import PublicacionRepository, ComentarioRepository, GrupoRepository
 from .schemas import (CrearPublicacionRequest, ActualizarPublicacionRequest, CrearComentarioRequest, CrearGrupoRequest,ActualizarGrupoRequest)
 from app.core.database import supabase
+from app.modules.notificaciones.repository import NotificacionRepository
+
+notificacion_repo = NotificacionRepository()
 
 BUCKET_PUBLICACIONES = "publicaciones"
 BUCKET_GRUPOS = "grupos"
@@ -442,6 +445,7 @@ class GrupoService:
                 "estado": "activa",
                 "fecha_ingreso": datetime.utcnow().isoformat(),
             })
+            self._notificar_aprobado(grupo_id, usuario_solicitante)
         else:
             membresia_sol = self.repository.obtener_miembro(grupo_id, usuario_solicitante)
             if membresia_sol:
@@ -523,4 +527,20 @@ class GrupoService:
         return {
             "mensaje": "Grupo y publicaciones eliminados correctamente",
             "grupo_id": grupo_id,
+
         }
+
+    #Notificación de aprobado al grupo
+    def _notificar_aprobado(self, grupo_id: int, usuario_id: int):
+        try:
+            grupo = self.repository.obtener_por_id(grupo_id)
+            nombre_grupo = grupo["nombre"] if grupo else "el grupo"
+            notificacion_repo.crear_notificaciones([{
+                "usuario_id": usuario_id,
+                "tipo": "aprobar_miembro",
+                "titulo": "¡Fuiste aceptado!",
+                "mensaje": f"Has sido aceptado en el grupo {nombre_grupo}.",
+                "data": {"grupo_id": grupo_id, "grupo_nombre": nombre_grupo},
+            }])
+        except Exception as e:
+            print(f"No se pudo crear notificación de aprobar_miembro: {e}")

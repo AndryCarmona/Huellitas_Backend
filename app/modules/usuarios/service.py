@@ -292,7 +292,14 @@ class UsuarioService:
         if not organizacion:
             raise ValueError("Organización no encontrada")
 
-        return self.repository.actualizar_organizacion(organizacion["id"], data)
+        datos_a_actualizar = {k: v for k, v in data.items() if v is not None}
+        
+        if not datos_a_actualizar:
+            raise ValueError("No se enviaron campos para actualizar")
+
+        organizacion_id = organizacion.get("id")
+
+        return self.repository.actualizar_organizacion(organizacion_id, data)
 
     def _subir_imagen_organizacion(self, usuario_id: int, archivo: UploadFile, tipo: str) -> str:
         """tipo debe ser 'perfil' o 'portada'"""

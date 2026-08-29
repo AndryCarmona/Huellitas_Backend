@@ -5,10 +5,10 @@ from typing import Optional, List
 class OrganizacionResponse(BaseModel):
     id: int
     nombre: str
-    descripcion: str
-    logoUrl: str = Field(alias="logo_url")
-    categoria: str
-    cuentaBancaria: str = Field(alias="cuenta_bancaria")
+    descripcion: Optional[str] = None
+    logoUrl: Optional[str] = Field(default=None, alias="logo_url")
+    categoria: Optional[str] = None
+    cuentaBancaria: Optional[str] = Field(default=None, alias="cuenta_bancaria")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 

@@ -109,9 +109,12 @@ class DonacionService:
         from app.modules.foro.repository import OrganizacionForoRepository
         
         org_repo = OrganizacionForoRepository()
-        org = org_repo.obtener_organizacion_por_dueno(0)
+        org = org_repo.obtener_por_id(organizacion_id)
+
+        if org is None:
+            raise ValueError(f"No se encontró ninguna organización con el ID {organizacion_id}. Verifica que el ID sea correcto.")
         
-        meta_mensual = float(org.get("meta_mensual", 0.0)) if org else 0.0
+        meta_mensual = float(org.get("meta_mensual", 0.0)) if org.get("meta_mensual") is not None else 0.0
         
         recaudado_mensual = org_repo.obtener_recaudado_mensual(organizacion_id)
         

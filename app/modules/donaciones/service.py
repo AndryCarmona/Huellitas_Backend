@@ -4,6 +4,7 @@ from .schemas import DonacionCreate
 from .repository import DonacionRepository
 from app.modules.insignias.repository import InsigniaRepository
 from app.modules.notificaciones.repository import NotificacionRepository
+from typing import Dict, Any, List
 
 notificacion_repo = NotificacionRepository()
 
@@ -102,3 +103,77 @@ class DonacionService:
             }])
         except Exception as e:
             print(f"No se pudo crear notificación de donación: {e}")
+
+    def obtener_estadisticas_organizacion(self, organizacion_id: int) -> Dict[str, Any]:
+        """Obtiene meta, recaudado y listado de donaciones con nombres de donantes."""
+        from app.modules.foro.repository import OrganizacionForoRepository
+        
+        org_repo = OrganizacionForoRepository()
+        org = org_repo.obtener_por_id(organizacion_id)
+
+        if org is None:
+            raise ValueError(f"No se encontró ninguna organización con el ID {organizacion_id}. Verifica que el ID sea correcto.")
+        
+        meta_mensual = float(org.get("meta_mensual", 0.0)) if org.get("meta_mensual") is not None else 0.0
+        
+        recaudado_mensual = org_repo.obtener_recaudado_mensual(organizacion_id)
+        
+        donaciones_db = self.repository.obtener_donaciones_recibidas(organizacion_id)
+        donaciones_enriquecidas = []
+        
+        for don in donaciones_db:
+            usuario = supabase.table("usuario").select("nombre").eq(
+                "usuario_id_pk", don.get("usuario_id")
+            ).execute()
+            nombre_donante = usuario.data[0]["nombre"] if usuario.data else "Donante Anónimo"
+            
+            donaciones_enriquecidas.append({
+                "id": don["id"],
+                "nombre_donante": nombre_donante,
+                "fecha_donacion": don["fecha_donacion"],
+                "monto": float(don["monto"]),
+                "estado": don["estado"]
+            })
+            
+        return {
+            "meta_mensual": meta_mensual,
+            "recaudado_mensual": recaudado_mensual,
+            "donaciones_recientes": donaciones_enriquecidas
+        }
+
+    def actualizar_meta_organizacion(self, organizacion_id: int, nueva_meta: float) -> Dict[str, Any]:
+        if nueva_meta <= 0:
+            raise ValueError("La meta debe ser mayor a 0")
+        return self.repository.actualizar_meta_mensual(organizacion_id, nueva_meta)
+
+    def obtener_donaciones_de_mi_organizacion(self, usuario_id: int) -> List[Dict[str, Any]]:
+        """Obtiene todo el historial de donaciones recibidas por la organización del usuario"""
+        from app.modules.foro.repository import OrganizacionForoRepository
+        
+        org_repo = OrganizacionForoRepository()
+        org = org_repo.obtener_organizacion_por_dueno(usuario_id)
+        if not org:
+            raise ValueError("No tienes una organización registrada")
+        
+        organizacion_id = org.get("id") or org.get("organizacion_id_pk")
+
+        donaciones_db = self.repository.obtener_donaciones_recibidas(organizacion_id, limite=100)
+        
+        donaciones_enriquecidas = []
+        for don in donaciones_db:
+            usuario = supabase.table("usuario").select("nombre").eq(
+                "usuario_id_pk", don.get("usuario_id")
+            ).execute()
+            nombre_donante = usuario.data[0]["nombre"] if usuario.data else "Donante Anónimo"
+            
+            donaciones_enriquecidas.append({
+                "id": don["id"],
+                "nombre_donante": nombre_donante,
+                "fecha_donacion": don["fecha_donacion"],
+                "monto": float(don["monto"]),
+                "estado": don["estado"]
+            })
+            
+        donaciones_enriquecidas.sort(key=lambda x: x["fecha_donacion"], reverse=True)
+            
+        return donaciones_enriquecidas

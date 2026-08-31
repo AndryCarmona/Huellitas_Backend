@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile, File, Form
 from typing import Optional, List
-from .schemas import (PublicacionResponse, CrearPublicacionRequest, ActualizarPublicacionRequest, PaginaPublicaciones,ComentarioResponse, CrearComentarioRequest, PaginaComentarios,GrupoResponse, CrearGrupoRequest, MiembroGrupoResponse, ResponderSolicitudRequest, EliminarMiembroRequest,ActualizarGrupoRequest)
-from .service import PublicacionService, ComentarioService, GrupoService
+from .repository import OrganizacionForoRepository
+from .schemas import (PublicacionResponse, CrearPublicacionRequest, ActualizarPublicacionRequest, PaginaPublicaciones,ComentarioResponse, CrearComentarioRequest, PaginaComentarios,GrupoResponse, CrearGrupoRequest, MiembroGrupoResponse, ResponderSolicitudRequest, EliminarMiembroRequest,ActualizarGrupoRequest, OrganizacionForoResponse)
+from .service import PublicacionService, ComentarioService, GrupoService, OrganizacionForoService
 from app.core.security import get_current_user
 
 router = APIRouter(tags=["Foro"])
@@ -12,8 +13,8 @@ router = APIRouter(tags=["Foro"])
 def obtener_feed(
     categoria: Optional[str] = None,
     grupo_id: Optional[int] = None,
+    organizacion_id: Optional[int] = None,
     cursor: Optional[str] = None,
-    limite: int = Query(default=20, le=100),
     usuario_actual: dict = Depends(get_current_user),
 ):
     service = PublicacionService()
@@ -22,8 +23,8 @@ def obtener_feed(
             usuario_id=usuario_actual["usuario_id_pk"],
             categoria=categoria,
             grupo_id=grupo_id,
+            organizacion_id=organizacion_id,
             cursor=int(cursor) if cursor else None,
-            limite=limite,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener feed: {str(e)}")
@@ -45,6 +46,7 @@ def crear_publicacion(
     contenido: str = Form(...),
     categoria: Optional[str] = Form(None),
     grupo_id: Optional[int] = Form(None),
+    organizacion_id: Optional[int] = Form(None),
     imagen: Optional[UploadFile] = File(None),
     usuario_actual: dict = Depends(get_current_user),
 ):
@@ -55,6 +57,7 @@ def crear_publicacion(
             contenido=contenido,
             categoria=categoria,
             grupo_id=grupo_id,
+            organizacion_id= organizacion_id,
         )
         return service.crear_publicacion(data, usuario_actual["usuario_id_pk"], imagen)
     except ValueError as e:
@@ -358,5 +361,44 @@ def eliminar_grupo(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============ ORGANIZACIONES (Para el Foro) ============
+
+@router.get("/organizaciones/mi-organizacion", response_model=OrganizacionForoResponse)
+def obtener_mi_organizacion_foro(
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = OrganizacionForoService()
+    try:
+        return service.obtener_mi_organizacion(usuario_actual["usuario_id_pk"])
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/organizaciones/verificadas", response_model=List[OrganizacionForoResponse])
+def obtener_organizaciones_verificadas():
+    service = OrganizacionForoService()
+    try:
+        return service.obtener_organizaciones_verificadas()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener organizaciones: {str(e)}")
+
+@router.post("/organizaciones/{organizacion_id}/seguir")
+def toggle_seguir_organizacion(
+    organizacion_id: int,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    service = OrganizacionForoService()
+    try:
+        org = service.org_repository.obtener_por_id(organizacion_id)
+        if org.get("dueño_id") == usuario_actual["usuario_id_pk"]:
+            raise ValueError("No puedes seguir a tu propia organización")
+
+        resultado = service.toggle_seguir_organizacion(
+            organizacion_id,
+            usuario_actual["usuario_id_pk"]
+        )
+        return resultado
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

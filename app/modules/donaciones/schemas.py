@@ -1,14 +1,14 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class OrganizacionResponse(BaseModel):
     id: int
     nombre: str
-    descripcion: str
-    logoUrl: str = Field(alias="logo_url")
-    categoria: str
-    cuentaBancaria: str = Field(alias="cuenta_bancaria")
+    descripcion: Optional[str] = None
+    logoUrl: Optional[str] = Field(default=None, alias="logo_url")
+    categoria: Optional[str] = None
+    cuentaBancaria: Optional[str] = Field(default=None, alias="cuenta_bancaria")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -32,3 +32,20 @@ class DonacionResponse(BaseModel):
     estado: str
     
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+class DonacionRecibidaResponse(BaseModel):
+    id: int
+    nombre_donante: str  # Lo obtenemos de la tabla usuario
+    fecha_donacion: datetime
+    monto: float
+    estado: str
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class OrganizacionStatsResponse(BaseModel):
+    meta_mensual: float
+    recaudado_mensual: float
+    donaciones_recientes: List[DonacionRecibidaResponse]
+
+class ActualizarMetaRequest(BaseModel):
+    meta_mensual: float

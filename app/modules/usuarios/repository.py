@@ -56,3 +56,33 @@ class UsuarioRepository:
             .execute()
         )
         return result.data
+
+# --- Organización ---
+    def crear_organizacion(self, usuario_id: int, data: dict):
+        organizacion_data = {
+            "nombre": data.get("nombre"),
+            "registro_legal": data.get("registro_legal"),
+            "categoria": data.get("categoria"),
+            "tipos_animales": data.get("tipos_animales"),
+            "telefono_emergencia": data.get("telefono_emergencia"),
+            "correo_institucional": data.get("correo_institucional"),
+            "fecha_fundacion": data.get("fecha_fundacion"),
+            "cuenta_bancaria": data.get("cuenta_bancaria"),
+            "descripcion": data.get("descripcion"),
+            "logo_url": data.get("logo_url"),
+            "dueño_id": usuario_id,
+        }
+        result = supabase.table("organizaciones").insert(organizacion_data).execute()
+        return result.data[0] if result.data else None
+
+    def obtener_organizacion_por_dueno(self, usuario_id: int):
+        result = supabase.table("organizaciones").select("*").eq("dueño_id", usuario_id).execute()
+        return result.data[0] if result.data else None
+
+    def actualizar_organizacion(self, organizacion_id: int, data: dict):
+        result = supabase.table("organizaciones").update(data).eq("id", organizacion_id).execute()
+        return result.data[0] if result.data else None
+
+    def actualizar_imagenes_organizacion(self, organizacion_id: int, data: dict):
+        result = supabase.table("organizaciones").update(data).eq("id", organizacion_id).execute()
+        return result.data[0] if result.data else None

@@ -4,7 +4,14 @@ from app.modules.embeddings.huggingface_client import (
     evaluar_respuesta_adopcion,
 )
 from .schemas import AdopcionCreate, PostulacionCreate, SugerirPreguntasRequest
+from fastapi import UploadFile
+from .repository import subir_imagen_adopcion, actualizar_imagen_adopcion
 
+
+def subir_imagen(adopcion_id: int, archivo: UploadFile) -> dict:
+    contenido = archivo.file.read()
+    url = subir_imagen_adopcion(contenido, archivo.filename, archivo.content_type)
+    return actualizar_imagen_adopcion(adopcion_id, url)
 
 def _adopcion_con_preguntas(adopcion_id: int) -> dict:
     adopcion = (

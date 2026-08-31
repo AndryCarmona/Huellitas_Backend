@@ -15,9 +15,19 @@ from .service import (
     calcular_ranking,
 )
 from app.core.security import get_current_user
+from fastapi import UploadFile, File
+from .service import subir_imagen as subir_imagen_service
 
 router = APIRouter(prefix="/adopciones", tags=["Adopciones"])
 
+@router.post("/{adopcion_id}/imagen", response_model=AdopcionOut)
+def subir_imagen(adopcion_id: int, archivo: UploadFile = File(...)):
+    try:
+        return subir_imagen_service(adopcion_id, archivo)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("", response_model=AdopcionOut)
 def crear(data: AdopcionCreate):

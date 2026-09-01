@@ -315,3 +315,34 @@ def contar_postulaciones(adopcion_id: int) -> int:
         .execute()
     )
     return resultado.count or 0
+
+def aprobar_postulacion(adopcion_id: int, postulacion_id: int, usuario_id: int) -> dict:
+    _verificar_dueno(adopcion_id, usuario_id)
+
+    postulacion = (
+        supabase.table("adopcion_postulacion")
+        .select("postulacion_id")
+        .eq("postulacion_id", postulacion_id)
+        .eq("adopcion_id_fk", adopcion_id)
+        .single()
+        .execute()
+        .data
+    )
+    if not postulacion:
+        raise ValueError("No se encontró esa postulación en esta adopción.")
+
+    supabase.table("adopcion_postulacion").update(
+        {"estado": "aprobada"}
+    ).eq("postulacion_id", postulacion_id).execute()
+
+    supabase.table("adopcion_postulacion").update(
+        {"estado": "rechazada"}
+    ).eq("adopcion_id_fk", adopcion_id).neq(
+        "postulacion_id", postulacion_id
+    ).execute()
+
+    supabase.table("adopcion").update(
+        {"estado": "cerrada"}
+    ).eq("adopcion_id", adopcion_id).execute()
+
+    return {"message": "Postulación aprobada. La adopción se cerró."}

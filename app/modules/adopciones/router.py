@@ -15,6 +15,7 @@ from .service import (
     calcular_ranking,
     ya_se_postulo,
     contar_postulaciones,
+    aprobar_postulacion
 )
 from app.core.security import get_current_user
 from fastapi import UploadFile, File
@@ -128,5 +129,20 @@ def mi_postulacion(adopcion_id: int, usuario_actual: dict = Depends(get_current_
 def conteo_postulaciones(adopcion_id: int):
     try:
         return {"total": contar_postulaciones(adopcion_id)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/{adopcion_id}/postulaciones/{postulacion_id}/aprobar")
+def aprobar(
+    adopcion_id: int,
+    postulacion_id: int,
+    usuario_actual: dict = Depends(get_current_user),
+):
+    try:
+        return aprobar_postulacion(adopcion_id, postulacion_id, usuario_actual["usuario_id_pk"])
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

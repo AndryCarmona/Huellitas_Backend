@@ -84,6 +84,11 @@ def postular(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        if "23505" in str(e) or "duplicate key" in str(e):
+            raise HTTPException(
+                status_code=409,
+                detail="Ya te has postulado a esta adopción anteriormente.",
+            )
         raise HTTPException(status_code=400, detail=str(e))
 
 

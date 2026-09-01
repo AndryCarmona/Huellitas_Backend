@@ -6,7 +6,7 @@ from app.modules.embeddings.huggingface_client import (
 from .schemas import AdopcionCreate, PostulacionCreate, SugerirPreguntasRequest
 from fastapi import UploadFile
 from .repository import subir_imagen_adopcion, actualizar_imagen_adopcion
-
+from app.modules.insignias.repository import InsigniaRepository
 
 def subir_imagen(adopcion_id: int, archivo: UploadFile) -> dict:
     contenido = archivo.file.read()
@@ -177,6 +177,25 @@ def listar_postulaciones(adopcion_id: int, usuario_id: int) -> list[dict]:
             .data
         )
         postulacion["respuestas"] = [_respuesta_a_schema(r) for r in respuestas]
+
+        usuario = (
+            supabase.table("usuario")
+            .select("nombre_usuario, foto_perfil, ciudad, estado, fecha_registro_usuario")
+            .eq("usuario_id_pk", postulacion["usuario_id_fk"])
+            .single()
+            .execute()
+            .data
+        )
+        conteo = _conteo_insignias_por_categoria(postulacion["usuario_id_fk"])
+
+        postulacion["nombre_usuario"] = usuario.get("nombre_usuario") if usuario else None
+        postulacion["foto_perfil"] = usuario.get("foto_perfil") if usuario else None
+        postulacion["ciudad"] = usuario.get("ciudad") if usuario else None
+        postulacion["estado_usuario"] = usuario.get("estado") if usuario else None
+        postulacion["fecha_registro_usuario"] = usuario.get("fecha_registro_usuario") if usuario else None
+        postulacion["insignias_rescate"] = conteo["rescate"]
+        postulacion["insignias_reporte"] = conteo["reporte"]
+        postulacion["insignias_donacion"] = conteo["donacion"]
     return postulaciones
 
 
@@ -213,8 +232,7 @@ def calcular_ranking(adopcion_id: int, usuario_id: int) -> list[dict]:
             sum(scores_respuestas) / len(scores_respuestas) if scores_respuestas else 0
         )
 
-        # TODO: score_insignias pendiente de integrar con InsigniaRepository/Service
-        score_insignias = 0
+        score_insignias = _calcular_score_insignias(postulacion["usuario_id_fk"])
 
         score_final = 0.65 * score_respuestas_ia + 0.35 * score_insignias
 
@@ -240,3 +258,60 @@ def _respuesta_a_schema(fila: dict) -> dict:
         "score_ia": fila.get("score_ia"),
         "justificacion_ia": fila.get("justificacion_ia"),
     }
+
+def _calcular_score_insignias(usuario_id: int) -> float:
+    repo = InsigniaRepository()
+    catalogo = repo.obtener_catalogo_insignias()
+    obtenidas = repo.obtener_insignias_de_usuario(usuario_id)
+    ids_obtenidas = {o["insignia_id"] for o in obtenidas}
+
+    por_categoria: dict[str, list[int]] = {}
+    for insignia in catalogo:
+        categoria = insignia.get("categoria", "otras")
+        por_categoria.setdefault(categoria, []).append(insignia["id_insignias"])
+
+    if not por_categoria:
+        return 0.0
+
+    porcentajes = []
+    for ids_categoria in por_categoria.values():
+        total = len(ids_categoria)
+        if total == 0:
+            continue
+        obtenidas_en_categoria = sum(1 for i in ids_categoria if i in ids_obtenidas)
+        porcentajes.append((obtenidas_en_categoria / total) * 100)
+
+    return sum(porcentajes) / len(porcentajes) if porcentajes else 0.0
+
+
+def _conteo_insignias_por_categoria(usuario_id: int) -> dict:
+    repo = InsigniaRepository()
+    catalogo = {i["id_insignias"]: i.get("categoria") for i in repo.obtener_catalogo_insignias()}
+    obtenidas = repo.obtener_insignias_de_usuario(usuario_id)
+
+    conteo = {"rescate": 0, "reporte": 0, "donacion": 0}
+    for o in obtenidas:
+        categoria = catalogo.get(o["insignia_id"])
+        if categoria in conteo:
+            conteo[categoria] += 1
+    return conteo
+
+def ya_se_postulo(adopcion_id: int, usuario_id: int) -> bool:
+    existente = (
+        supabase.table("adopcion_postulacion")
+        .select("postulacion_id")
+        .eq("adopcion_id_fk", adopcion_id)
+        .eq("usuario_id_fk", usuario_id)
+        .execute()
+        .data
+    )
+    return len(existente) > 0
+
+def contar_postulaciones(adopcion_id: int) -> int:
+    resultado = (
+        supabase.table("adopcion_postulacion")
+        .select("postulacion_id", count="exact")
+        .eq("adopcion_id_fk", adopcion_id)
+        .execute()
+    )
+    return resultado.count or 0

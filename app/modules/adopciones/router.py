@@ -13,6 +13,8 @@ from .service import (
     crear_postulacion,
     listar_postulaciones,
     calcular_ranking,
+    ya_se_postulo,
+    contar_postulaciones,
 )
 from app.core.security import get_current_user
 from fastapi import UploadFile, File
@@ -112,5 +114,19 @@ def ranking(adopcion_id: int, usuario_actual: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/{adopcion_id}/mi-postulacion")
+def mi_postulacion(adopcion_id: int, usuario_actual: dict = Depends(get_current_user)):
+    try:
+        return {"ya_postulado": ya_se_postulo(adopcion_id, usuario_actual["usuario_id_pk"])}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/{adopcion_id}/conteo-postulaciones")
+def conteo_postulaciones(adopcion_id: int):
+    try:
+        return {"total": contar_postulaciones(adopcion_id)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -70,6 +70,14 @@ class PostulacionOut(BaseModel):
     score_respuestas_ia: Optional[float] = None
     score_final: Optional[float] = None
     respuestas: List[RespuestaOut] = []
+    nombre_usuario: Optional[str] = None
+    foto_perfil: Optional[str] = None
+    ciudad: Optional[str] = None
+    estado_usuario: Optional[str] = None
+    fecha_registro_usuario: Optional[datetime] = None
+    insignias_rescate: int = 0
+    insignias_reporte: int = 0
+    insignias_donacion: int = 0
 
 
 class SugerirPreguntasRequest(BaseModel):

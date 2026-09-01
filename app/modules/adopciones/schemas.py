@@ -89,3 +89,6 @@ class SugerirPreguntasRequest(BaseModel):
 
 class SugerirPreguntasResponse(BaseModel):
     preguntas_sugeridas: List[str]
+
+class UploadImagenResponse(BaseModel):
+    url: str

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from .schemas import (
     AdopcionCreate, AdopcionOut,
     PostulacionCreate, PostulacionOut,
-    SugerirPreguntasRequest, SugerirPreguntasResponse,
+    SugerirPreguntasRequest, SugerirPreguntasResponse, UploadImagenResponse
 )
 from .service import (
     crear_adopcion,
@@ -20,6 +20,7 @@ from .service import (
 from app.core.security import get_current_user
 from fastapi import UploadFile, File
 from .service import subir_imagen as subir_imagen_service
+from app.modules.reportes.service import subir_evidencia
 
 router = APIRouter(prefix="/adopciones", tags=["Adopciones"])
 
@@ -144,5 +145,14 @@ def aprobar(
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/upload-imagen", response_model=UploadImagenResponse)
+async def upload_imagen(file: UploadFile = File(...)):
+    try:
+        contenido = await file.read()
+        url = subir_evidencia(contenido, file.filename)
+        return {"url": url}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

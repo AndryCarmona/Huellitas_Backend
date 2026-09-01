@@ -100,6 +100,8 @@ def postulaciones(adopcion_id: int, usuario_actual: dict = Depends(get_current_u
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{adopcion_id}/ranking", response_model=list[PostulacionOut])
@@ -110,3 +112,5 @@ def ranking(adopcion_id: int, usuario_actual: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

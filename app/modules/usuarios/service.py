@@ -87,13 +87,13 @@ class UsuarioService:
             org_payload = {
                 "nombre": usuario_data.organizacion.nombre,
                 "registro_legal": usuario_data.organizacion.registroLegal,
-                "categoria": "refugios", 
+                "categoria": usuario_data.organizacion.categoria,
                 "tipos_animales": usuario_data.organizacion.tiposAnimales,
                 "telefono_emergencia": usuario_data.organizacion.telefonoEmergencia,
                 "correo_institucional": usuario_data.organizacion.correoInstitucional,
                 "fecha_fundacion": usuario_data.organizacion.fechaFundacion.isoformat(),
                 "cuenta_bancaria": usuario_data.organizacion.cuentaBancaria,
-                "descripcion": usuario_data.organizacion.descripcion, 
+                "descripcion": usuario_data.organizacion.descripcion,
                 "logo_url": None,
             }
             self.repository.crear_organizacion(nuevo_usuario["usuario_id_pk"], org_payload)

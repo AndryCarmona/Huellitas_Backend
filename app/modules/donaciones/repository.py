@@ -60,7 +60,7 @@ class DonacionRepository:
         response = (
             supabase.table("organizaciones")
             .update({"meta_mensual": nueva_meta})
-            .eq("id", organizacion_id) # Ajusta a tu PK real si es organizacion_id_pk
+            .eq("id", organizacion_id)
             .execute()
         )
         return response.data[0] if response.data else {}

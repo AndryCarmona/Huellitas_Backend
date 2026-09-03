@@ -63,6 +63,7 @@ class RespuestaOut(RespuestaCreate):
 class PostulacionCreate(BaseModel):
     # Compatibilidad con Flutter antiguo; no es una fuente de identidad confiable.
     usuario_id_fk: Optional[int] = None
+    contacto: Optional[str] = None
     respuestas: List[RespuestaCreate]
 
 

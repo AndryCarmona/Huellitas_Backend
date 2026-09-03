@@ -154,19 +154,30 @@ def crear_postulacion(adopcion_id: int, data: PostulacionCreate, usuario_id: int
     ids_respuestas = [r.pregunta_id for r in data.respuestas]
     if len(ids_respuestas) != len(set(ids_respuestas)):
         raise ValueError("No se puede responder dos veces la misma pregunta.")
-    if set(ids_respuestas) != set(preguntas):
+    ids_preguntas_contacto = {
+        pregunta_id
+        for pregunta_id, pregunta in preguntas.items()
+        if _es_pregunta_contacto(pregunta)
+    }
+    ids_preguntas_evaluables = set(preguntas) - ids_preguntas_contacto
+    if (
+        not set(ids_respuestas).issubset(set(preguntas))
+        or not ids_preguntas_evaluables.issubset(set(ids_respuestas))
+    ):
         raise ValueError("Debes responder exactamente las preguntas de esta adopción.")
 
-    contacto = next(
+    contacto = (data.contacto or "").strip() or next(
         (
             r.respuesta_texto.strip()
             for r in data.respuestas
-            if _es_pregunta_contacto(preguntas[r.pregunta_id])
+            if r.pregunta_id in ids_preguntas_contacto
         ),
         None,
     )
     if not contacto:
         raise ValueError("Debes proporcionar un medio de contacto.")
+    if len(contacto) > 255:
+        raise ValueError("El medio de contacto no puede exceder 255 caracteres.")
 
     postulacion_row = {
         "adopcion_id_fk": adopcion_id,

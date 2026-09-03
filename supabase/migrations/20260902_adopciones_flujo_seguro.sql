@@ -29,6 +29,21 @@ where p.contacto is null
         and lower(q.texto) like '%medio de contacto%'
   );
 
+-- Compatibilidad para postulaciones creadas antes de que la pregunta de contacto
+-- fuera obligatoria. No sobrescribe un contacto elegido por el postulante.
+update public.adopcion_postulacion p
+set contacto = coalesce(
+    nullif(btrim(u.num_telefono), ''),
+    nullif(btrim(u.correo), '')
+)
+from public.usuario u
+where u.usuario_id_pk = p.usuario_id_fk
+  and nullif(btrim(p.contacto), '') is null
+  and coalesce(
+      nullif(btrim(u.num_telefono), ''),
+      nullif(btrim(u.correo), '')
+  ) is not null;
+
 -- Los cierres del flujo anterior no guardaban los contactos necesarios. Se
 -- reabren para evitar representar como completas adopciones incompletas.
 update public.adopcion set estado = 'activa' where estado = 'cerrada';

@@ -95,6 +95,24 @@ class AdopcionesServiceTests(unittest.TestCase):
         atomica.assert_called_once_with(3, 4, 5, "correo@ejemplo.test")
         self.assertEqual(resultado["estado"], "completada")
 
+    def test_postulacion_acepta_contacto_explicito_sin_pregunta_legacy(self):
+        db = {
+            "adopcion": [{"adopcion_id": 7, "usuario_id_fk": 1, "estado": "activa"}],
+            "adopcion_pregunta": [
+                {"pregunta_id": 11, "texto": "¿Tienes patio?", "adopcion_id_fk": 7},
+            ],
+        }
+        solicitud = PostulacionCreate(
+            contacto=" contacto@ejemplo.test ",
+            respuestas=[RespuestaCreate(pregunta_id=11, respuesta_texto="Sí")],
+        )
+
+        with patch.object(service, "supabase", FakeSupabase(db)):
+            service.crear_postulacion(7, solicitud, usuario_id=2)
+
+        insertada = db["inserted"]["adopcion_postulacion"][0]
+        self.assertEqual(insertada["contacto"], "contacto@ejemplo.test")
+
     def test_mi_postulacion_no_filtra_contacto_a_rechazado(self):
         db = {
             "adopcion_postulacion": [{

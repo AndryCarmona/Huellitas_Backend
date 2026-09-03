@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from .schemas import (
     AdopcionCreate, AdopcionOut,
     PostulacionCreate, PostulacionOut,
-    SugerirPreguntasRequest, SugerirPreguntasResponse, UploadImagenResponse
+    SugerirPreguntasRequest, SugerirPreguntasResponse, UploadImagenResponse,
+    AprobarPostulacionRequest,
 )
 from .service import (
     crear_adopcion,
@@ -13,7 +14,7 @@ from .service import (
     crear_postulacion,
     listar_postulaciones,
     calcular_ranking,
-    ya_se_postulo,
+    obtener_mi_postulacion,
     contar_postulaciones,
     aprobar_postulacion
 )
@@ -25,18 +26,26 @@ from app.modules.reportes.service import subir_evidencia
 router = APIRouter(prefix="/adopciones", tags=["Adopciones"])
 
 @router.post("/{adopcion_id}/imagen", response_model=AdopcionOut)
-def subir_imagen(adopcion_id: int, archivo: UploadFile = File(...)):
+def subir_imagen(
+    adopcion_id: int,
+    archivo: UploadFile = File(...),
+    usuario_actual: dict = Depends(get_current_user),
+):
     try:
-        return subir_imagen_service(adopcion_id, archivo)
+        return subir_imagen_service(
+            adopcion_id, archivo, usuario_actual["usuario_id_pk"]
+        )
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("", response_model=AdopcionOut)
-def crear(data: AdopcionCreate):
+def crear(data: AdopcionCreate, usuario_actual: dict = Depends(get_current_user)):
     try:
-        return crear_adopcion(data)
+        return crear_adopcion(data, usuario_actual["usuario_id_pk"])
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -84,7 +93,9 @@ def postular(
     usuario_actual: dict = Depends(get_current_user),
 ):
     try:
-        return crear_postulacion(adopcion_id, data)
+        return crear_postulacion(
+            adopcion_id, data, usuario_actual["usuario_id_pk"]
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -108,7 +119,8 @@ def postulaciones(adopcion_id: int, usuario_actual: dict = Depends(get_current_u
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{adopcion_id}/ranking", response_model=list[PostulacionOut])
+@router.get("/{adopcion_id}/ranking", response_model=list[PostulacionOut])
+@router.post("/{adopcion_id}/ranking", response_model=list[PostulacionOut], deprecated=True)
 def ranking(adopcion_id: int, usuario_actual: dict = Depends(get_current_user)):
     try:
         return calcular_ranking(adopcion_id, usuario_actual["usuario_id_pk"])
@@ -122,11 +134,12 @@ def ranking(adopcion_id: int, usuario_actual: dict = Depends(get_current_user)):
 @router.get("/{adopcion_id}/mi-postulacion")
 def mi_postulacion(adopcion_id: int, usuario_actual: dict = Depends(get_current_user)):
     try:
-        return {"ya_postulado": ya_se_postulo(adopcion_id, usuario_actual["usuario_id_pk"])}
+        return obtener_mi_postulacion(adopcion_id, usuario_actual["usuario_id_pk"])
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/{adopcion_id}/conteo-postulaciones")
+@router.get("/{adopcion_id}/postulaciones/conteo")
+@router.get("/{adopcion_id}/conteo-postulaciones", deprecated=True)
 def conteo_postulaciones(adopcion_id: int):
     try:
         return {"total": contar_postulaciones(adopcion_id)}
@@ -137,10 +150,16 @@ def conteo_postulaciones(adopcion_id: int):
 def aprobar(
     adopcion_id: int,
     postulacion_id: int,
+    data: AprobarPostulacionRequest,
     usuario_actual: dict = Depends(get_current_user),
 ):
     try:
-        return aprobar_postulacion(adopcion_id, postulacion_id, usuario_actual["usuario_id_pk"])
+        return aprobar_postulacion(
+            adopcion_id,
+            postulacion_id,
+            usuario_actual["usuario_id_pk"],
+            data.contacto_responsable,
+        )
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
@@ -149,7 +168,10 @@ def aprobar(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/upload-imagen", response_model=UploadImagenResponse)
-async def upload_imagen(file: UploadFile = File(...)):
+async def upload_imagen(
+    file: UploadFile = File(...),
+    usuario_actual: dict = Depends(get_current_user),
+):
     try:
         contenido = await file.read()
         url = subir_evidencia(contenido, file.filename)

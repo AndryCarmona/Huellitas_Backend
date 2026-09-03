@@ -84,8 +84,8 @@ class UsuarioPublicoResponse(BaseModel):
     nombre: str
     apellidos: str
     nombre_usuario: str
-    correo: str
-    num_telefono: str
+    correo: Optional[str] = None
+    num_telefono: Optional[str] = None
     foto_perfil: str | None = None
     verificado: bool
 

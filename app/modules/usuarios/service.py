@@ -201,7 +201,7 @@ class UsuarioService:
 
         return self.repository.actualizar_perfil(usuario_id, {"foto_perfil": url})
     
-    def obtener_perfil_publico(self, usuario_id: int):
+    def obtener_perfil_publico(self, usuario_id: int, solicitante_id: int):
         usuario = self.repository.obtener_por_id(usuario_id)
         if not usuario:
             raise ValueError("Usuario no encontrado")
@@ -211,8 +211,13 @@ class UsuarioService:
             "nombre": usuario["nombre"],
             "apellidos": usuario["apellidos"],
             "nombre_usuario": usuario.get("nombre_usuario"),
-            "correo": usuario["correo"],
-            "num_telefono": usuario["num_telefono"],
+            # Los datos de contacto no forman parte de un perfil publico. Los
+            # contactos de adopcion se intercambian por sus endpoints con
+            # autorizacion bilateral una vez completada la seleccion.
+            "correo": usuario["correo"] if usuario_id == solicitante_id else None,
+            "num_telefono": (
+                usuario["num_telefono"] if usuario_id == solicitante_id else None
+            ),
             "foto_perfil": usuario.get("foto_perfil"),
             "verificado": usuario["verificado"],
         }

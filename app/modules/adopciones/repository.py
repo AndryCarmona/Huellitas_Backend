@@ -28,3 +28,24 @@ def actualizar_imagen_adopcion(adopcion_id: int, imagen_url: str) -> dict:
     if not resultado:
         raise ValueError("No se encontró la adopción.")
     return resultado[0]
+
+
+def aprobar_postulacion_atomica(
+    adopcion_id: int,
+    postulacion_id: int,
+    responsable_id: int,
+    contacto_responsable: str,
+) -> dict:
+    """Delega la seleccion completa a PostgreSQL para obtener atomicidad real."""
+    resultado = supabase.rpc(
+        "aprobar_postulacion_adopcion",
+        {
+            "p_adopcion_id": adopcion_id,
+            "p_postulacion_id": postulacion_id,
+            "p_responsable_id": responsable_id,
+            "p_contacto_responsable": contacto_responsable,
+        },
+    ).execute().data
+    if isinstance(resultado, list):
+        return resultado[0] if resultado else {}
+    return resultado or {}

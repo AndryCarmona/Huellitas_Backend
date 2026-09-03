@@ -194,7 +194,9 @@ def obtener_perfil_publico(
 ):
     service = UsuarioService()
     try:
-        return service.obtener_perfil_publico(usuario_id)
+        return service.obtener_perfil_publico(
+            usuario_id, usuario_actual["usuario_id_pk"]
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return {"access_token": access_token, "token_type": "bearer"}

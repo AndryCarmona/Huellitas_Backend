@@ -5,13 +5,24 @@ from app.modules.embeddings.huggingface_client import (
 )
 from .schemas import AdopcionCreate, PostulacionCreate, SugerirPreguntasRequest
 from fastapi import UploadFile
-from .repository import subir_imagen_adopcion, actualizar_imagen_adopcion
+from .repository import (
+    subir_imagen_adopcion,
+    actualizar_imagen_adopcion,
+    aprobar_postulacion_atomica,
+)
 from app.modules.insignias.repository import InsigniaRepository
 
-def subir_imagen(adopcion_id: int, archivo: UploadFile) -> dict:
+def subir_imagen(adopcion_id: int, archivo: UploadFile, usuario_id: int) -> dict:
+    _verificar_dueno(adopcion_id, usuario_id)
     contenido = archivo.file.read()
     url = subir_imagen_adopcion(contenido, archivo.filename, archivo.content_type)
     return actualizar_imagen_adopcion(adopcion_id, url)
+
+def _ocultar_contactos_adopcion(adopcion: dict) -> dict:
+    adopcion.pop("contacto_responsable", None)
+    adopcion.pop("contacto_adoptante", None)
+    return adopcion
+
 
 def _adopcion_con_preguntas(adopcion_id: int) -> dict:
     adopcion = (
@@ -34,11 +45,13 @@ def _adopcion_con_preguntas(adopcion_id: int) -> dict:
         .data
     )
     adopcion["preguntas"] = preguntas
-    return adopcion
+    return _ocultar_contactos_adopcion(adopcion)
 
 
-def crear_adopcion(data: AdopcionCreate) -> dict:
+def crear_adopcion(data: AdopcionCreate, usuario_id: int) -> dict:
     adopcion_row = data.model_dump(exclude={"preguntas"})
+    adopcion_row["usuario_id_fk"] = usuario_id
+    adopcion_row["estado"] = "activa"
     adopcion = supabase.table("adopcion").insert(adopcion_row).execute().data[0]
 
     preguntas_creadas = []
@@ -67,6 +80,7 @@ def listar_adopciones() -> list[dict]:
         .data
     )
     for adopcion in adopciones:
+        _ocultar_contactos_adopcion(adopcion)
         preguntas = (
             supabase.table("adopcion_pregunta")
             .select("*")
@@ -109,10 +123,14 @@ def sugerir_preguntas(data: SugerirPreguntasRequest) -> list[str]:
     )
 
 
-def crear_postulacion(adopcion_id: int, data: PostulacionCreate) -> dict:
+def _es_pregunta_contacto(pregunta: dict) -> bool:
+    return "medio de contacto" in (pregunta.get("texto") or "").strip().lower()
+
+
+def crear_postulacion(adopcion_id: int, data: PostulacionCreate, usuario_id: int) -> dict:
     adopcion = (
         supabase.table("adopcion")
-        .select("adopcion_id")
+        .select("adopcion_id,usuario_id_fk,estado")
         .eq("adopcion_id", adopcion_id)
         .single()
         .execute()
@@ -120,10 +138,41 @@ def crear_postulacion(adopcion_id: int, data: PostulacionCreate) -> dict:
     )
     if not adopcion:
         raise ValueError("No se encontró la adopción.")
+    if adopcion.get("estado") != "activa":
+        raise ValueError("Esta adopción ya no recibe postulaciones.")
+    if adopcion.get("usuario_id_fk") == usuario_id:
+        raise ValueError("No puedes postularte a tu propia adopción.")
+
+    preguntas = {
+        p["pregunta_id"]: p
+        for p in supabase.table("adopcion_pregunta")
+        .select("pregunta_id,texto")
+        .eq("adopcion_id_fk", adopcion_id)
+        .execute()
+        .data
+    }
+    ids_respuestas = [r.pregunta_id for r in data.respuestas]
+    if len(ids_respuestas) != len(set(ids_respuestas)):
+        raise ValueError("No se puede responder dos veces la misma pregunta.")
+    if set(ids_respuestas) != set(preguntas):
+        raise ValueError("Debes responder exactamente las preguntas de esta adopción.")
+
+    contacto = next(
+        (
+            r.respuesta_texto.strip()
+            for r in data.respuestas
+            if _es_pregunta_contacto(preguntas[r.pregunta_id])
+        ),
+        None,
+    )
+    if not contacto:
+        raise ValueError("Debes proporcionar un medio de contacto.")
 
     postulacion_row = {
         "adopcion_id_fk": adopcion_id,
-        "usuario_id_fk": data.usuario_id_fk,
+        "usuario_id_fk": usuario_id,
+        "estado": "pendiente",
+        "contacto": contacto,
     }
     postulacion = (
         supabase.table("adopcion_postulacion").insert(postulacion_row).execute().data[0]
@@ -131,6 +180,8 @@ def crear_postulacion(adopcion_id: int, data: PostulacionCreate) -> dict:
 
     respuestas_creadas = []
     for respuesta in data.respuestas:
+        if _es_pregunta_contacto(preguntas[respuesta.pregunta_id]):
+            continue
         fila = {
             "postulacion_id_fk": postulacion["postulacion_id"],
             "pregunta_id_fk": respuesta.pregunta_id,
@@ -140,6 +191,7 @@ def crear_postulacion(adopcion_id: int, data: PostulacionCreate) -> dict:
         respuestas_creadas.append(_respuesta_a_schema(creada))
 
     postulacion["respuestas"] = respuestas_creadas
+    postulacion.pop("contacto", None)
     return postulacion
 
 
@@ -161,6 +213,23 @@ def _verificar_dueno(adopcion_id: int, usuario_id: int) -> None:
 def listar_postulaciones(adopcion_id: int, usuario_id: int) -> list[dict]:
     _verificar_dueno(adopcion_id, usuario_id)
 
+    adopcion = (
+        supabase.table("adopcion")
+        .select("estado,adoptante_id")
+        .eq("adopcion_id", adopcion_id)
+        .single()
+        .execute()
+        .data
+    )
+    preguntas_por_id = {
+        pregunta["pregunta_id"]: pregunta
+        for pregunta in supabase.table("adopcion_pregunta")
+        .select("pregunta_id,texto")
+        .eq("adopcion_id_fk", adopcion_id)
+        .execute()
+        .data
+    }
+
     postulaciones = (
         supabase.table("adopcion_postulacion")
         .select("*")
@@ -169,6 +238,13 @@ def listar_postulaciones(adopcion_id: int, usuario_id: int) -> list[dict]:
         .data
     )
     for postulacion in postulaciones:
+        seleccionada = (
+            adopcion.get("estado") == "completada"
+            and postulacion.get("estado") == "aceptada"
+            and postulacion.get("usuario_id_fk") == adopcion.get("adoptante_id")
+        )
+        postulacion["contacto"] = postulacion.get("contacto") if seleccionada else None
+        postulacion["fue_aceptada"] = seleccionada
         respuestas = (
             supabase.table("adopcion_respuesta")
             .select("*")
@@ -176,7 +252,13 @@ def listar_postulaciones(adopcion_id: int, usuario_id: int) -> list[dict]:
             .execute()
             .data
         )
-        postulacion["respuestas"] = [_respuesta_a_schema(r) for r in respuestas]
+        postulacion["respuestas"] = [
+            _respuesta_a_schema(r)
+            for r in respuestas
+            if not _es_pregunta_contacto(
+                preguntas_por_id.get(r["pregunta_id_fk"], {})
+            )
+        ]
 
         usuario = (
             supabase.table("usuario")
@@ -307,6 +389,39 @@ def ya_se_postulo(adopcion_id: int, usuario_id: int) -> bool:
     )
     return len(existente) > 0
 
+
+def obtener_mi_postulacion(adopcion_id: int, usuario_id: int) -> dict:
+    filas = (
+        supabase.table("adopcion_postulacion")
+        .select("postulacion_id,adopcion_id_fk,usuario_id_fk,fecha_registro,estado")
+        .eq("adopcion_id_fk", adopcion_id)
+        .eq("usuario_id_fk", usuario_id)
+        .execute()
+        .data
+    )
+    if not filas:
+        return {"ya_postulado": False, "postulacion": None}
+
+    postulacion = filas[0]
+    adopcion = (
+        supabase.table("adopcion")
+        .select("estado,adoptante_id,contacto_responsable")
+        .eq("adopcion_id", adopcion_id)
+        .single()
+        .execute()
+        .data
+    ) or {}
+    fue_aceptada = (
+        adopcion.get("estado") == "completada"
+        and postulacion.get("estado") == "aceptada"
+        and adopcion.get("adoptante_id") == usuario_id
+    )
+    postulacion["fue_aceptada"] = fue_aceptada
+    postulacion["contacto_responsable"] = (
+        adopcion.get("contacto_responsable") if fue_aceptada else None
+    )
+    return {"ya_postulado": True, "postulacion": postulacion}
+
 def contar_postulaciones(adopcion_id: int) -> int:
     resultado = (
         supabase.table("adopcion_postulacion")
@@ -316,33 +431,18 @@ def contar_postulaciones(adopcion_id: int) -> int:
     )
     return resultado.count or 0
 
-def aprobar_postulacion(adopcion_id: int, postulacion_id: int, usuario_id: int) -> dict:
+def aprobar_postulacion(
+    adopcion_id: int,
+    postulacion_id: int,
+    usuario_id: int,
+    contacto_responsable: str,
+) -> dict:
+    contacto = contacto_responsable.strip()
+    if not contacto:
+        raise ValueError("El medio de contacto del responsable es obligatorio.")
+    if len(contacto) > 255:
+        raise ValueError("El medio de contacto no puede exceder 255 caracteres.")
     _verificar_dueno(adopcion_id, usuario_id)
-
-    postulacion = (
-        supabase.table("adopcion_postulacion")
-        .select("postulacion_id")
-        .eq("postulacion_id", postulacion_id)
-        .eq("adopcion_id_fk", adopcion_id)
-        .single()
-        .execute()
-        .data
+    return aprobar_postulacion_atomica(
+        adopcion_id, postulacion_id, usuario_id, contacto
     )
-    if not postulacion:
-        raise ValueError("No se encontró esa postulación en esta adopción.")
-
-    supabase.table("adopcion_postulacion").update(
-        {"estado": "aprobada"}
-    ).eq("postulacion_id", postulacion_id).execute()
-
-    supabase.table("adopcion_postulacion").update(
-        {"estado": "rechazada"}
-    ).eq("adopcion_id_fk", adopcion_id).neq(
-        "postulacion_id", postulacion_id
-    ).execute()
-
-    supabase.table("adopcion").update(
-        {"estado": "cerrada"}
-    ).eq("adopcion_id", adopcion_id).execute()
-
-    return {"message": "Postulación aprobada. La adopción se cerró."}

@@ -14,7 +14,9 @@ class PreguntaAdopcionOut(PreguntaAdopcionCreate):
 
 
 class AdopcionCreate(BaseModel):
-    usuario_id_fk: int
+    # Se conserva opcional durante la migracion de clientes antiguos. El servidor
+    # siempre sustituye este valor por el usuario autenticado.
+    usuario_id_fk: Optional[int] = None
     nombre: str
     especie: str
     edad: str
@@ -41,6 +43,9 @@ class AdopcionOut(BaseModel):
     imagen_url: Optional[str] = None
     fecha_adopcion: datetime
     estado: str
+    adoptante_id: Optional[int] = None
+    contacto_responsable: Optional[str] = None
+    contacto_adoptante: Optional[str] = None
     preguntas: List[PreguntaAdopcionOut] = []
 
 
@@ -56,7 +61,8 @@ class RespuestaOut(RespuestaCreate):
 
 
 class PostulacionCreate(BaseModel):
-    usuario_id_fk: int
+    # Compatibilidad con Flutter antiguo; no es una fuente de identidad confiable.
+    usuario_id_fk: Optional[int] = None
     respuestas: List[RespuestaCreate]
 
 
@@ -78,6 +84,13 @@ class PostulacionOut(BaseModel):
     insignias_rescate: int = 0
     insignias_reporte: int = 0
     insignias_donacion: int = 0
+    contacto: Optional[str] = None
+    contacto_responsable: Optional[str] = None
+    fue_aceptada: bool = False
+
+
+class AprobarPostulacionRequest(BaseModel):
+    contacto_responsable: str
 
 
 class SugerirPreguntasRequest(BaseModel):

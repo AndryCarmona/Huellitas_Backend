@@ -12,7 +12,7 @@ import os
 CODIGO_VALIDEZ_MINUTOS = 15
 EXIGIR_CORREO_CONFIRMADO = os.getenv("EXIGIR_CORREO_CONFIRMADO", "true").lower() == "true"  # Para mantener el funcionamiento del build 2 y 3 sin importar el código de verificación
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 6 * 60
 BUCKET_NAME = "usuarios-completar-perfil"
 BUCKET_FOTOS_PERFIL = "fotos-perfil"
 BUCKET_ORGANIZACIONES = "organizaciones"
